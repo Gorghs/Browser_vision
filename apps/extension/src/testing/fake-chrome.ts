@@ -12,7 +12,21 @@ import { vi } from 'vitest';
 type StorageChange = { oldValue?: unknown; newValue?: unknown };
 type ChangeListener = (changes: Record<string, StorageChange>, areaName: string) => void;
 
+/** Only the tab fields the handlers actually read. */
+export interface FakeTab {
+  id: number;
+  windowId: number;
+  active: boolean;
+  url?: string;
+  title?: string;
+  openerTabId?: number;
+}
+
 export interface FakeChrome {
+  tabs: {
+    query: (query: { windowId?: number; active?: boolean }) => Promise<FakeTab[]>;
+    get: (tabId: number) => Promise<FakeTab>;
+  };
   storage: {
     local: {
       get: (key: string) => Promise<Record<string, unknown>>;
@@ -34,10 +48,13 @@ export interface FakeChrome {
   };
   /** Test-only view of what is stored, for arranging state directly. */
   __store: Map<string, unknown>;
+  /** Test-only tab table, for arranging which tabs exist. */
+  __tabs: FakeTab[];
 }
 
 export function createFakeChrome(): FakeChrome {
   const store = new Map<string, unknown>();
+  const tabs: FakeTab[] = [];
   const changeListeners = new Set<ChangeListener>();
   const messageListeners = new Set<unknown>();
 
@@ -48,6 +65,21 @@ export function createFakeChrome(): FakeChrome {
   };
 
   return {
+    tabs: {
+      query: (query) =>
+        Promise.resolve(
+          tabs.filter(
+            (tab) =>
+              (query.windowId === undefined || tab.windowId === query.windowId) &&
+              (query.active === undefined || tab.active === query.active),
+          ),
+        ),
+      get: (tabId) => {
+        const tab = tabs.find((candidate) => candidate.id === tabId);
+        // Matches Chrome, which rejects rather than resolving with undefined.
+        return tab ? Promise.resolve(tab) : Promise.reject(new Error('No tab with id'));
+      },
+    },
     storage: {
       local: {
         get: (key) => Promise.resolve(store.has(key) ? { [key]: store.get(key) } : {}),
@@ -80,6 +112,7 @@ export function createFakeChrome(): FakeChrome {
       lastError: undefined,
     },
     __store: store,
+    __tabs: tabs,
   };
 }
 

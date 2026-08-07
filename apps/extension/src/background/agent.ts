@@ -3,13 +3,16 @@ import {
   createQueueStorage,
   createSessionStorage,
   createTimeoutScheduler,
+  createVisitStorage,
   getInstallationId,
   readStatus,
   updateStatus,
 } from './chrome-adapters.js';
 import { EventCollector } from './event-collector.js';
 import { EventQueue } from './event-queue.js';
+import { createBrowserEventHandlers } from './listeners/browser-events.js';
 import { SessionManager } from './session-manager.js';
+import { VisitTracker } from './visit-tracker.js';
 import { loadSettings, saveSettings } from '../services/settings.js';
 import type { AgentStatus } from '../messaging/contract.js';
 
@@ -63,10 +66,15 @@ const collector = new EventCollector({
   getSettings: loadSettings,
 });
 
+const visits = new VisitTracker(createVisitStorage());
+
+const handlers = createBrowserEventHandlers({ collector, visits });
+
 export const agent = {
   queue,
   sessions,
   collector,
+  handlers,
 
   /** Snapshot for the popup. */
   async status(): Promise<AgentStatus> {

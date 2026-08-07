@@ -31,6 +31,43 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   void agent.queue.flush();
 });
 
+/**
+ * Browser activity listeners.
+ *
+ * Chrome's listener signatures are synchronous, so each handler is launched with
+ * `void` and reports its own failures. Every one of them funnels through the
+ * collector, which decides whether anything is recorded at all.
+ */
+const { handlers } = agent;
+
+function run(work: Promise<void>, label: string): void {
+  work.catch((cause: unknown) => {
+    console.error(`[agent] ${label} failed:`, cause);
+  });
+}
+
+chrome.tabs.onCreated.addListener((tab) => run(handlers.onTabCreated(tab), 'tabs.onCreated'));
+
+chrome.tabs.onRemoved.addListener((tabId, info) =>
+  run(handlers.onTabRemoved(tabId, info), 'tabs.onRemoved'),
+);
+
+chrome.tabs.onActivated.addListener((info) =>
+  run(handlers.onTabActivated(info), 'tabs.onActivated'),
+);
+
+chrome.windows.onFocusChanged.addListener((windowId) =>
+  run(handlers.onWindowFocusChanged(windowId), 'windows.onFocusChanged'),
+);
+
+chrome.webNavigation.onCommitted.addListener((details) =>
+  run(handlers.onCommitted(details), 'webNavigation.onCommitted'),
+);
+
+chrome.webNavigation.onCompleted.addListener((details) =>
+  run(handlers.onCompleted(details), 'webNavigation.onCompleted'),
+);
+
 chrome.runtime.onMessage.addListener((message: ExtensionMessage, sender, sendResponse) => {
   void (async () => {
     try {

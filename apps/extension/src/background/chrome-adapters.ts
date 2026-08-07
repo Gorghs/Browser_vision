@@ -1,6 +1,7 @@
 import type { BrowserEvent } from '@vab/types';
 import type { QueueScheduler, QueueStorage } from './event-queue.js';
 import type { SessionStorage, StoredSession } from './session-manager.js';
+import type { OpenVisit, VisitStorage } from './visit-tracker.js';
 
 /**
  * Adapters binding the background modules to Chrome.
@@ -11,6 +12,7 @@ import type { SessionStorage, StoredSession } from './session-manager.js';
 
 const QUEUE_KEY = 'eventQueue';
 const SESSION_KEY = 'currentSession';
+const VISITS_KEY = 'openVisits';
 const INSTALLATION_KEY = 'installationId';
 const STATUS_KEY = 'agentStatus';
 
@@ -43,6 +45,19 @@ export function createSessionStorage(): SessionStorage {
         return;
       }
       await chrome.storage.local.set({ [SESSION_KEY]: session });
+    },
+  };
+}
+
+export function createVisitStorage(): VisitStorage {
+  return {
+    async read() {
+      const stored = await chrome.storage.local.get(VISITS_KEY);
+      const value = stored[VISITS_KEY];
+      return value && typeof value === 'object' ? (value as Record<string, OpenVisit>) : {};
+    },
+    async write(visits) {
+      await chrome.storage.local.set({ [VISITS_KEY]: visits });
     },
   };
 }
