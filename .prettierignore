@@ -1,0 +1,8 @@
+node_modules/
+dist/
+build/
+coverage/
+pnpm-lock.yaml
+
+# Source-of-truth specification — kept verbatim, never reformatted.
+docs/PROMPT.md
