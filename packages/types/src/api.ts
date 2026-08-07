@@ -1,5 +1,6 @@
 import { z } from 'zod';
-import { EVENT_LIMITS, browserEventSchema, browserEventTypeSchema } from './events.js';
+import { browserEventSchema, browserEventTypeSchema } from './events.js';
+import { EVENT_LIMITS } from './limits.js';
 import { sessionSchema } from './session.js';
 
 /**

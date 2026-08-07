@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ingestEventsRequestSchema, listEventsQuerySchema } from './api.js';
-import { EVENT_LIMITS, browserEventSchema } from './events.js';
+import { browserEventSchema } from './events.js';
+import { EVENT_LIMITS } from './limits.js';
 
 const sessionId = '11111111-1111-4111-8111-111111111111';
 const installationId = '22222222-2222-4222-8222-222222222222';

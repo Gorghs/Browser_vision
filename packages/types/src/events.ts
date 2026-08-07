@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { EVENT_LIMITS } from './limits.js';
 
 /**
  * Every kind of browser activity the foundation records.
@@ -28,22 +29,6 @@ export const BROWSER_EVENT_TYPES = [
 
 export const browserEventTypeSchema = z.enum(BROWSER_EVENT_TYPES);
 export type BrowserEventType = z.infer<typeof browserEventTypeSchema>;
-
-/**
- * Upper bounds exist so a hostile or simply strange page cannot push unbounded
- * payloads through the pipeline. Values are truncated at the collection site
- * rather than rejected here, so one odd page never costs a whole batch.
- */
-export const EVENT_LIMITS = {
-  urlMaxLength: 2048,
-  titleMaxLength: 512,
-  /** Events accepted in a single ingest request. */
-  batchMaxSize: 200,
-  /** Characters of user-selected text retained on a TEXT_SELECTED event. */
-  selectionMaxLength: 280,
-  /** Characters of accessible label text retained on a CLICK event. */
-  clickLabelMaxLength: 120,
-} as const;
 
 const isoTimestamp = z.iso.datetime({ offset: true });
 

@@ -1,5 +1,6 @@
 import { agent } from './agent.js';
 import { FLUSH_ALARM } from './chrome-adapters.js';
+import { loadSettings } from '../services/settings.js';
 import type { ExtensionMessage } from '../messaging/contract.js';
 
 /**
@@ -87,6 +88,13 @@ chrome.runtime.onMessage.addListener((message: ExtensionMessage, sender, sendRes
           return;
 
         case 'REPORT_INTERACTION': {
+          // Re-checked here rather than trusted to the content script, which may
+          // be running an older copy of the settings on a long-open page.
+          if (!(await loadSettings()).trackInteractions) {
+            sendResponse({ accepted: false });
+            return;
+          }
+
           // The content script is untrusted input: it reports what happened, but
           // the tab's identity comes from the sender, which the page cannot forge.
           const tab = sender.tab;

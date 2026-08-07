@@ -5,7 +5,8 @@
   "type": "module",
   "description": "Shared browser event contracts and validation schemas.",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./limits": "./src/limits.ts"
   },
   "types": "./src/index.ts",
   "scripts": {
