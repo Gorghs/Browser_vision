@@ -8,9 +8,9 @@ import tseslint from 'typescript-eslint';
  * inherit these rules; they only add a config block here when they genuinely
  * need different globals or environment-specific rules.
  *
- * Type-aware linting is intentionally not enabled yet: it needs a tsconfig per
- * package, and no package exists at this point. It is switched on in the task
- * that introduces the first workspace package.
+ * Type-aware linting is enabled for TypeScript sources. Rather than the full
+ * `recommendedTypeChecked` set — which is mostly noise around Chrome's loosely
+ * typed APIs — only the rules that catch real defects in async code are on.
  */
 export default tseslint.config(
   {
@@ -38,6 +38,25 @@ export default tseslint.config(
         'error',
         { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
       ],
+    },
+  },
+
+  {
+    files: ['**/*.ts', '**/*.tsx'],
+    languageOptions: {
+      parserOptions: {
+        projectService: true,
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
+    rules: {
+      // Dropped promises are the defect this codebase is most exposed to:
+      // Chrome event listeners are synchronous, so an un-awaited async call
+      // inside one fails silently.
+      '@typescript-eslint/no-floating-promises': 'error',
+      '@typescript-eslint/no-misused-promises': 'error',
+      '@typescript-eslint/await-thenable': 'error',
+      '@typescript-eslint/no-unnecessary-type-assertion': 'error',
     },
   },
 

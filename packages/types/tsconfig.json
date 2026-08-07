@@ -1,0 +1,13 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    // DOM is here only for the WHATWG `URL` global, which the url helpers use and
+    // which exists in both Node and the browser. This package must stay free of
+    // anything genuinely DOM-bound; it is imported by the server too.
+    "lib": ["ES2022", "DOM"],
+    "noEmit": true
+  },
+  "include": ["src"]
+}

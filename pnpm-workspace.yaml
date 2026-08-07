@@ -1,3 +1,8 @@
 packages:
   - 'apps/*'
   - 'packages/*'
+
+# Build scripts are opt-in. esbuild ships prebuilt binaries that Vite and Vitest
+# need at install time; nothing else is granted a postinstall script.
+allowBuilds:
+  esbuild: true
