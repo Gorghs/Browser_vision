@@ -2,10 +2,12 @@ import { z } from 'zod';
 import { EVENT_LIMITS } from './limits.js';
 
 /**
- * Every kind of browser activity the foundation records.
+ * Every kind of activity recorded against a session.
  *
- * Visual and AI event types (screenshots, OCR, model analysis) belong to later
- * modules and are deliberately absent: the telemetry layer must stand on its own.
+ * Most originate in the browser. The last three are written server-side by the
+ * analysis pipeline, so the events table stays a single ordered log of what
+ * happened to a session rather than splitting into "browser" and "processing"
+ * histories the dashboard would have to interleave itself.
  */
 export const BROWSER_EVENT_TYPES = [
   'SESSION_STARTED',
@@ -25,6 +27,14 @@ export const BROWSER_EVENT_TYPES = [
   'FOCUS',
   'BLUR',
   'TEXT_SELECTED',
+
+  // Emitted by the extension once a capture has been stored, so an event never
+  // references a screenshot that does not exist.
+  'SCREENSHOT_CAPTURED',
+
+  // Written by the server's analysis worker.
+  'OCR_COMPLETED',
+  'AI_ANALYSIS_COMPLETED',
 ] as const;
 
 export const browserEventTypeSchema = z.enum(BROWSER_EVENT_TYPES);
