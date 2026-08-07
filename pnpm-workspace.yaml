@@ -6,3 +6,6 @@ packages:
 # need at install time; nothing else is granted a postinstall script.
 allowBuilds:
   esbuild: true
+
+minimumReleaseAgeExclude:
+  - vite@8.2.1

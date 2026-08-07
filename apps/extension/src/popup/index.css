@@ -1,0 +1,22 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-surface: #0f1117;
+  --color-surface-raised: #171a23;
+  --color-border-subtle: #262b38;
+  --color-accent: #5b8def;
+}
+
+html,
+body {
+  margin: 0;
+  /* Chrome sizes a popup to its content; without a width it collapses. */
+  width: 360px;
+  background: var(--color-surface);
+  color: #e7eaf1;
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    sans-serif;
+}
