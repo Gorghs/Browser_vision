@@ -16,6 +16,8 @@ export function App() {
     refreshStatus,
     setTracking,
     updateSettings,
+    setVisualCapture,
+    captureNow,
   } = usePopupStore();
   const [showSettings, setShowSettings] = useState(false);
 
@@ -56,6 +58,24 @@ export function App() {
         onChange={(checked) => void setTracking(checked)}
       />
 
+      <Toggle
+        label="Visual capture"
+        description="Screenshot pages so they can be read and understood."
+        checked={settings.visualCaptureEnabled}
+        disabled={!tracking}
+        onChange={(checked) => void setVisualCapture(checked)}
+      />
+
+      {settings.visualCaptureEnabled ? (
+        <button
+          type="button"
+          onClick={() => void captureNow()}
+          className="rounded-md border border-[var(--color-border-subtle)] bg-[var(--color-surface-raised)] px-3 py-1.5 text-xs text-slate-200 hover:border-[var(--color-accent)]"
+        >
+          Capture this page now
+        </button>
+      ) : null}
+
       <StatusPanel status={status} />
 
       <section className="border-t border-[var(--color-border-subtle)] pt-2">
@@ -82,6 +102,13 @@ export function App() {
               checked={settings.captureSelectedText}
               disabled={!tracking || !settings.trackInteractions}
               onChange={(checked) => void updateSettings({ captureSelectedText: checked })}
+            />
+            <Toggle
+              label="Capture on page load"
+              description="Otherwise screenshots are only taken when you ask."
+              checked={settings.captureOnNavigation}
+              disabled={!tracking || !settings.visualCaptureEnabled}
+              onChange={(checked) => void updateSettings({ captureOnNavigation: checked })}
             />
 
             <label className="mt-2 flex flex-col gap-1">
@@ -137,6 +164,9 @@ export function App() {
       <p className="text-[11px] leading-relaxed text-slate-500">
         Keyboard input and form field contents are never recorded. URLs are stored without their
         query strings.
+        {settings.visualCaptureEnabled
+          ? ' Screenshots capture whatever is on screen, including anything visible on the page.'
+          : ''}
       </p>
     </main>
   );

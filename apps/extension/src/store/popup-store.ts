@@ -20,8 +20,34 @@ interface PopupState {
   refreshStatus: () => Promise<void>;
   setTracking: (enabled: boolean) => Promise<void>;
   updateSettings: (patch: Partial<ExtensionSettings>) => Promise<void>;
+  setVisualCapture: (enabled: boolean) => Promise<void>;
+  captureNow: () => Promise<void>;
   flushNow: () => Promise<void>;
 }
+
+/**
+ * The origins a screenshot needs.
+ *
+ * Requested from the popup rather than the background worker, because Chrome
+ * only shows a permission prompt in response to a user gesture — and a
+ * permission for reading page pixels should require one.
+ */
+const CAPTURE_ORIGINS = ['http://*/*', 'https://*/*'];
+
+/** Why a capture was refused, in words the user can act on. */
+const CAPTURE_REFUSALS: Record<string, string> = {
+  'tracking-disabled': 'Turn tracking on first.',
+  'visual-capture-disabled': 'Turn visual capture on first.',
+  'permission-not-granted': 'Chrome has not granted screenshot permission.',
+  'untrackable-url': 'This page cannot be captured.',
+  'blocked-domain': 'This domain is on your blocklist.',
+  'no-session': 'No session is running.',
+  'session-limit': 'This session has reached its capture limit.',
+  'too-large': 'The captured image was too large to send.',
+  'upload-failed': 'The backend did not accept the screenshot.',
+  'capture-failed': 'Chrome refused to capture this tab.',
+  'no-active-tab': 'No active tab to capture.',
+};
 
 export const usePopupStore = create<PopupState>((set, get) => ({
   settings: DEFAULT_SETTINGS,
@@ -61,6 +87,50 @@ export const usePopupStore = create<PopupState>((set, get) => ({
     } catch (cause) {
       set({ error: cause instanceof Error ? cause.message : 'Could not save settings.' });
     }
+  },
+
+  /**
+   * Turns visual capture on, asking Chrome for the permission it needs first.
+   *
+   * The setting is only written if the permission is granted, so the popup can
+   * never show capture as enabled while Chrome would refuse every attempt.
+   * Switching it off hands the permission back rather than merely ignoring it.
+   */
+  setVisualCapture: async (enabled) => {
+    if (!enabled) {
+      await saveSettings({ visualCaptureEnabled: false });
+      await chrome.permissions.remove({ origins: CAPTURE_ORIGINS }).catch(() => false);
+      set({ settings: await loadSettings(), error: null });
+      await get().refreshStatus();
+      return;
+    }
+
+    const granted = await chrome.permissions
+      .request({ origins: CAPTURE_ORIGINS })
+      .catch(() => false);
+    if (!granted) {
+      set({ error: 'Chrome denied permission to capture pages, so visual capture stays off.' });
+      return;
+    }
+
+    set({ settings: await saveSettings({ visualCaptureEnabled: true }), error: null });
+    await get().refreshStatus();
+  },
+
+  captureNow: async () => {
+    const result = await sendToBackground({ kind: 'CAPTURE_NOW' });
+    if (result?.captured === true) {
+      set({ error: null });
+      await get().refreshStatus();
+      return;
+    }
+    const reason = result?.reason;
+    set({
+      error:
+        reason !== undefined
+          ? (CAPTURE_REFUSALS[reason] ?? `Capture failed: ${reason}`)
+          : 'Could not reach the background worker.',
+    });
   },
 
   flushNow: async () => {

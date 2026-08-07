@@ -19,6 +19,16 @@ export interface ExtensionSettings {
    * everything else the extension collects is metadata.
    */
   captureSelectedText: boolean;
+  /**
+   * Whether tab screenshots are captured at all.
+   *
+   * Off by default and gated on a separate Chrome permission the user grants
+   * when switching it on: a screenshot is categorically more revealing than the
+   * metadata everything else collects, so it is a second, explicit decision.
+   */
+  visualCaptureEnabled: boolean;
+  /** Capture on navigation, as opposed to only when asked from the popup. */
+  captureOnNavigation: boolean;
   /** Backend base URL, no trailing slash. */
   apiBaseUrl: string;
   /** Shared key the backend expects in `x-api-key`. */
@@ -31,6 +41,8 @@ export const DEFAULT_SETTINGS: ExtensionSettings = {
   trackingEnabled: false,
   trackInteractions: true,
   captureSelectedText: false,
+  visualCaptureEnabled: false,
+  captureOnNavigation: true,
   apiBaseUrl: 'http://localhost:3000',
   apiKey: '',
   blockedDomains: [],

@@ -8,6 +8,9 @@ import { SessionManager } from '../session-manager.js';
 import type { SessionStorage, StoredSession } from '../session-manager.js';
 import { VisitTracker } from '../visit-tracker.js';
 import type { OpenVisit, VisitStorage } from '../visit-tracker.js';
+import { CapturePolicy, EMPTY_CAPTURE_STATE } from '../capture-policy.js';
+import type { CaptureState } from '../capture-policy.js';
+import { ScreenshotEngine } from '../screenshot-engine.js';
 import { createBrowserEventHandlers } from './browser-events.js';
 
 const START = new Date('2026-08-07T10:00:00.000Z');
@@ -57,14 +60,54 @@ function createHarness() {
     },
   });
 
+  // Visual capture is off in these tests, so the engine refuses every request.
+  // Tab and navigation behaviour is what is under test here; capture has its own.
+  let captureState: CaptureState = { ...EMPTY_CAPTURE_STATE };
+  const capturePolicy = new CapturePolicy({
+    storage: {
+      read: () => Promise.resolve(captureState),
+      write: (next) => {
+        captureState = next;
+        return Promise.resolve();
+      },
+    },
+    now: () => clock.now.getTime(),
+  });
+
+  const uploads: unknown[] = [];
+  const screenshots = new ScreenshotEngine({
+    policy: capturePolicy,
+    sessions: new SessionManager({
+      storage: sessionStorage,
+      now: () => clock.now,
+      newId: () => 'session-1',
+    }),
+    collector,
+    uploader: {
+      upload: (request) => {
+        uploads.push(request);
+        return Promise.resolve({ stored: true });
+      },
+    },
+    getSettings: () => Promise.resolve({ ...DEFAULT_SETTINGS, trackingEnabled: true }),
+    getInstallationId: () => Promise.resolve('22222222-2222-4222-8222-222222222222'),
+    captureTab: () => Promise.resolve('data:image/jpeg;base64,AAAA'),
+    hasCapturePermission: () => Promise.resolve(true),
+    now: () => clock.now,
+    newId: () => 'screenshot-1',
+  });
+
   const handlers = createBrowserEventHandlers({
     collector,
     visits: new VisitTracker(visitStorage, () => clock.now),
+    screenshots,
+    capturePolicy,
   });
 
   return {
     handlers,
     collected,
+    uploads,
     advance: (ms: number) => {
       clock.now = new Date(clock.now.getTime() + ms);
     },

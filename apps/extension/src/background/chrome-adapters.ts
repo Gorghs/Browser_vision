@@ -1,6 +1,9 @@
 import type { BrowserEvent } from '@vab/types';
 import type { QueueScheduler, QueueStorage } from './event-queue.js';
+import { CAPTURE_QUALITY } from './screenshot-engine.js';
 import type { SessionStorage, StoredSession } from './session-manager.js';
+import { EMPTY_CAPTURE_STATE } from './capture-policy.js';
+import type { CaptureState, CaptureStateStorage } from './capture-policy.js';
 import type { OpenVisit, VisitStorage } from './visit-tracker.js';
 
 /**
@@ -13,6 +16,7 @@ import type { OpenVisit, VisitStorage } from './visit-tracker.js';
 const QUEUE_KEY = 'eventQueue';
 const SESSION_KEY = 'currentSession';
 const VISITS_KEY = 'openVisits';
+const CAPTURE_STATE_KEY = 'captureState';
 const INSTALLATION_KEY = 'installationId';
 const STATUS_KEY = 'agentStatus';
 
@@ -60,6 +64,35 @@ export function createVisitStorage(): VisitStorage {
       await chrome.storage.local.set({ [VISITS_KEY]: visits });
     },
   };
+}
+
+export function createCaptureStateStorage(): CaptureStateStorage {
+  return {
+    async read() {
+      const stored = await chrome.storage.local.get(CAPTURE_STATE_KEY);
+      const value = stored[CAPTURE_STATE_KEY];
+      if (!value || typeof value !== 'object') return { ...EMPTY_CAPTURE_STATE };
+      return { ...EMPTY_CAPTURE_STATE, ...(value as Partial<CaptureState>) };
+    },
+    async write(state) {
+      await chrome.storage.local.set({ [CAPTURE_STATE_KEY]: state });
+    },
+  };
+}
+
+/**
+ * Whether Chrome has actually granted permission to read page pixels.
+ *
+ * Asked at capture time rather than remembered, because the user can revoke it
+ * from Chrome's own settings without the extension being told.
+ */
+export async function hasCapturePermission(): Promise<boolean> {
+  return chrome.permissions.contains({ origins: ['http://*/*', 'https://*/*'] });
+}
+
+/** Captures the visible area of the active tab in a window, as a data URL. */
+export async function captureVisibleTab(windowId: number): Promise<string> {
+  return chrome.tabs.captureVisibleTab(windowId, { format: 'jpeg', quality: CAPTURE_QUALITY });
 }
 
 /**

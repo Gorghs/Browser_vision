@@ -27,6 +27,12 @@ const manifest: chrome.runtime.ManifestV3 = {
   // user can point that at a different origin from the popup.
   host_permissions: ['http://localhost/*', 'http://127.0.0.1/*'],
 
+  // Capturing a tab's pixels requires permission over the pages being captured.
+  // It is optional and requested at the moment the user switches visual capture
+  // on, so installing the extension never grants the ability to see pages, and
+  // revoking the setting hands the permission back.
+  optional_host_permissions: ['http://*/*', 'https://*/*'],
+
   background: {
     service_worker: 'background.js',
     type: 'module',

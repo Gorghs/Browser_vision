@@ -1,16 +1,21 @@
 import { BackendClient } from './backend-client.js';
+import { CapturePolicy } from './capture-policy.js';
 import {
+  captureVisibleTab,
+  createCaptureStateStorage,
   createQueueStorage,
   createSessionStorage,
   createTimeoutScheduler,
   createVisitStorage,
   getInstallationId,
+  hasCapturePermission,
   readStatus,
   updateStatus,
 } from './chrome-adapters.js';
 import { EventCollector } from './event-collector.js';
 import { EventQueue } from './event-queue.js';
 import { createBrowserEventHandlers } from './listeners/browser-events.js';
+import { ScreenshotEngine } from './screenshot-engine.js';
 import { SessionManager } from './session-manager.js';
 import { VisitTracker } from './visit-tracker.js';
 import { loadSettings, saveSettings } from '../services/settings.js';
@@ -68,20 +73,42 @@ const collector = new EventCollector({
 
 const visits = new VisitTracker(createVisitStorage());
 
-const handlers = createBrowserEventHandlers({ collector, visits });
+const capturePolicy = new CapturePolicy({ storage: createCaptureStateStorage() });
+
+const screenshots = new ScreenshotEngine({
+  policy: capturePolicy,
+  sessions,
+  collector,
+  uploader: {
+    upload: async (request) => client.uploadScreenshot(request),
+  },
+  getSettings: loadSettings,
+  getInstallationId,
+  captureTab: captureVisibleTab,
+  hasCapturePermission,
+  onError: (message) => {
+    console.warn('[agent]', message);
+    void updateStatus({ lastError: message });
+  },
+});
+
+const handlers = createBrowserEventHandlers({ collector, visits, screenshots, capturePolicy });
 
 export const agent = {
   queue,
   sessions,
   collector,
+  screenshots,
+  capturePolicy,
   handlers,
 
   /** Snapshot for the popup. */
   async status(): Promise<AgentStatus> {
-    const [settings, session, stats] = await Promise.all([
+    const [settings, session, stats, capturePermissionGranted] = await Promise.all([
       loadSettings(),
       sessions.current(),
       readStatus(),
+      hasCapturePermission().catch(() => false),
     ]);
     await queue.restore();
 
@@ -93,6 +120,7 @@ export const agent = {
       deliveredEvents: stats.deliveredEvents,
       lastFlushAt: stats.lastFlushAt,
       lastError: stats.lastError,
+      capturePermissionGranted,
     };
   },
 

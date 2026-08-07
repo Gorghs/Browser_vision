@@ -27,12 +27,15 @@ export interface AgentStatus {
   lastFlushAt: string | null;
   /** Most recent delivery failure, cleared by the next success. */
   lastError: string | null;
+  /** Whether Chrome has granted the permission screenshots require. */
+  capturePermissionGranted: boolean;
 }
 
 export type ExtensionMessage =
   | { kind: 'GET_STATUS' }
   | { kind: 'SET_TRACKING'; enabled: boolean }
   | { kind: 'FLUSH_NOW' }
+  | { kind: 'CAPTURE_NOW' }
   | { kind: 'REPORT_INTERACTION'; report: InteractionReport };
 
 /** Maps each message to the reply its handler produces. */
@@ -40,6 +43,8 @@ export interface ExtensionMessageResults {
   GET_STATUS: AgentStatus;
   SET_TRACKING: AgentStatus;
   FLUSH_NOW: AgentStatus;
+  /** `reason` explains a refusal, so the popup can say why nothing happened. */
+  CAPTURE_NOW: { captured: boolean; reason?: string };
   REPORT_INTERACTION: { accepted: boolean };
 }
 

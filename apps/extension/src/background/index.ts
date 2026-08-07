@@ -87,6 +87,28 @@ chrome.runtime.onMessage.addListener((message: ExtensionMessage, sender, sendRes
           sendResponse(await agent.status());
           return;
 
+        case 'CAPTURE_NOW': {
+          const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+          if (tab?.id === undefined || tab.windowId === undefined) {
+            sendResponse({ captured: false, reason: 'no-active-tab' });
+            return;
+          }
+          const outcome = await agent.screenshots.capture({
+            trigger: 'manual',
+            tabId: tab.id,
+            windowId: tab.windowId,
+            url: tab.url,
+            title: tab.title,
+            width: tab.width,
+            height: tab.height,
+          });
+          sendResponse({
+            captured: outcome.captured,
+            ...(outcome.reason !== undefined ? { reason: outcome.reason } : {}),
+          });
+          return;
+        }
+
         case 'REPORT_INTERACTION': {
           // Re-checked here rather than trusted to the content script, which may
           // be running an older copy of the settings on a long-open page.
