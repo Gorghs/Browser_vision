@@ -50,35 +50,39 @@ describe('browserEventSchema', () => {
 });
 
 describe('ingestEventsRequestSchema', () => {
-  const session = { id: sessionId, startedAt: '2026-08-07T09:59:00.000Z' };
-
   it('accepts a well-formed batch', () => {
     const parsed = ingestEventsRequestSchema.parse({
       installationId,
-      session,
       events: [validEvent()],
     });
     expect(parsed.events).toHaveLength(1);
   });
 
+  it('accepts a batch spanning two sessions', () => {
+    const otherSession = '99999999-9999-4999-8999-999999999999';
+    const parsed = ingestEventsRequestSchema.parse({
+      installationId,
+      events: [
+        validEvent(),
+        validEvent({ id: '55555555-5555-4555-8555-555555555555', sessionId: otherSession }),
+      ],
+    });
+    expect(new Set(parsed.events.map((event) => event.sessionId)).size).toBe(2);
+  });
+
   it('rejects an empty batch, which would be a pointless request', () => {
-    expect(
-      ingestEventsRequestSchema.safeParse({ installationId, session, events: [] }).success,
-    ).toBe(false);
+    expect(ingestEventsRequestSchema.safeParse({ installationId, events: [] }).success).toBe(false);
   });
 
   it('rejects a batch over the size limit', () => {
     const events = Array.from({ length: EVENT_LIMITS.batchMaxSize + 1 }, () => validEvent());
-    expect(ingestEventsRequestSchema.safeParse({ installationId, session, events }).success).toBe(
-      false,
-    );
+    expect(ingestEventsRequestSchema.safeParse({ installationId, events }).success).toBe(false);
   });
 
   it('rejects an installation id that is not a uuid', () => {
     expect(
       ingestEventsRequestSchema.safeParse({
         installationId: 'anonymous',
-        session,
         events: [validEvent()],
       }).success,
     ).toBe(false);

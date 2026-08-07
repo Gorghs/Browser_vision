@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { EVENT_LIMITS, browserEventSchema, browserEventTypeSchema } from './events.js';
-import { sessionInfoSchema, sessionSchema } from './session.js';
+import { sessionSchema } from './session.js';
 
 /**
  * Body of `POST /api/events`.
@@ -8,10 +8,15 @@ import { sessionInfoSchema, sessionSchema } from './session.js';
  * `installationId` identifies the browser profile the extension runs in. It is a
  * random per-install identifier, not an account: Module 1 has no sign-in, and
  * this keeps sessions attributable without collecting anything about a person.
+ *
+ * The batch carries no session object. A buffered batch can straddle a session
+ * boundary — the user turns tracking off and on again before it drains — so one
+ * session field could only ever describe part of it. The server derives sessions
+ * from the events instead, which also means a lost SESSION_STARTED costs
+ * nothing.
  */
 export const ingestEventsRequestSchema = z.object({
   installationId: z.uuid(),
-  session: sessionInfoSchema,
   events: z.array(browserEventSchema).min(1).max(EVENT_LIMITS.batchMaxSize),
 });
 
