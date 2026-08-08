@@ -31,6 +31,38 @@ const envSchema = z.object({
   CORS_ORIGINS: z.string().default('http://localhost:5173'),
 
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
+
+  /**
+   * Vision AI. Entirely optional: with no provider configured the server still
+   * stores screenshots and reads them with OCR, and the timeline still builds
+   * from events. Analysis is the only thing that stops.
+   */
+  AI_PROVIDER: z.enum(['gemini', 'openai']).optional(),
+  AI_API_KEY: z.string().min(1).optional(),
+  /** Overrides the provider's default model. */
+  AI_MODEL: z.string().min(1).optional(),
+  /**
+   * Overrides the provider's endpoint.
+   *
+   * OpenAI-compatible endpoints are common — Azure, proxies, locally hosted
+   * models — and pointing at one is the only way to exercise the provider
+   * without a vendor account. OpenAI only; Gemini's URL encodes the model.
+   */
+  AI_BASE_URL: z.url().optional(),
+
+  /** Set false to store screenshots without ever reading them. */
+  OCR_ENABLED: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((value) => value === 'true'),
+
+  /** Supabase Storage bucket holding screenshot images. */
+  SCREENSHOT_BUCKET: z.string().min(1).default('screenshots'),
+  /** Where images go when Supabase is not configured. */
+  SCREENSHOT_DIR: z.string().min(1).default('.data/screenshots'),
+
+  /** How often the analysis worker looks for new screenshots. 0 disables it. */
+  ANALYSIS_INTERVAL_MS: z.coerce.number().int().min(0).max(3_600_000).default(15_000),
 });
 
 export type RawEnv = z.infer<typeof envSchema>;
@@ -42,6 +74,18 @@ export interface AppConfig {
   corsOrigins: string[];
   apiKey: string | undefined;
   supabase: { url: string; serviceRoleKey: string } | undefined;
+  ai:
+    | {
+        provider: 'gemini' | 'openai';
+        apiKey: string;
+        model: string | undefined;
+        baseUrl: string | undefined;
+      }
+    | undefined;
+  ocrEnabled: boolean;
+  screenshotBucket: string;
+  screenshotDir: string;
+  analysisIntervalMs: number;
 }
 
 export class ConfigError extends Error {
@@ -81,6 +125,15 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
     }
   }
 
+  // Same rule as the Supabase pair: a provider with no key cannot work, and a
+  // key with no provider says nothing about which API to call. Failing here
+  // beats failing on the first screenshot analysed hours later.
+  const hasProvider = env.AI_PROVIDER !== undefined;
+  const hasAiKey = env.AI_API_KEY !== undefined;
+  if (hasProvider !== hasAiKey) {
+    throw new ConfigError('AI_PROVIDER and AI_API_KEY must be set together, or neither.');
+  }
+
   return {
     nodeEnv: env.NODE_ENV,
     port: env.PORT,
@@ -93,5 +146,18 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
       env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY
         ? { url: env.SUPABASE_URL, serviceRoleKey: env.SUPABASE_SERVICE_ROLE_KEY }
         : undefined,
+    ai:
+      env.AI_PROVIDER && env.AI_API_KEY
+        ? {
+            provider: env.AI_PROVIDER,
+            apiKey: env.AI_API_KEY,
+            model: env.AI_MODEL,
+            baseUrl: env.AI_BASE_URL,
+          }
+        : undefined,
+    ocrEnabled: env.OCR_ENABLED,
+    screenshotBucket: env.SCREENSHOT_BUCKET,
+    screenshotDir: env.SCREENSHOT_DIR,
+    analysisIntervalMs: env.ANALYSIS_INTERVAL_MS,
   };
 }
