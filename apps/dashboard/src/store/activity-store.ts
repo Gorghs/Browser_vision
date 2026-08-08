@@ -23,7 +23,7 @@ export interface ActivityFilters {
 }
 
 /** Which read the main pane is showing. */
-export type ActivityView = 'overview' | 'events' | 'timeline' | 'screenshots';
+export type ActivityView = 'overview' | 'session' | 'events' | 'timeline' | 'screenshots';
 
 interface ActivityState {
   events: BrowserEvent[];

@@ -555,6 +555,85 @@ describe('overview view', () => {
   });
 });
 
+describe('session explorer view', () => {
+  it('prompts for a session when none is selected', async () => {
+    stubFetch(defaultHandler);
+    render(<App />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Session' }));
+
+    expect(await screen.findByText(/Select a session from the list/)).toBeTruthy();
+  });
+
+  it('opens the deep dive when a session is picked from the list', async () => {
+    stubFetch(defaultHandler);
+    render(<App />);
+    await screen.findByText('Top sites by activity');
+
+    fireEvent.click(screen.getByRole('button', { name: /7 Aug/ }));
+
+    expect(await screen.findByText('Session from 7 Aug')).toBeTruthy();
+    expect(screen.getByRole('navigation', { name: 'Session sections' })).toBeTruthy();
+  });
+
+  it('switches between the explorer sections and shows AI analysis', async () => {
+    stubFetch(defaultHandler);
+    render(<App />);
+    await screen.findByText('Top sites by activity');
+
+    fireEvent.click(screen.getByRole('button', { name: /7 Aug/ }));
+    fireEvent.click(await screen.findByRole('button', { name: 'AI analysis' }));
+
+    expect(
+      await screen.findByText('Reading a GitHub issue about router cache invalidation.'),
+    ).toBeTruthy();
+    expect(screen.getByText('Router cache not invalidating')).toBeTruthy();
+    expect(screen.getByText(/To understand a reported routing bug/)).toBeTruthy();
+  });
+
+  it('explains when the session has no AI analysis yet', async () => {
+    stubFetch((url) => {
+      if (url.includes('/api/analytics/summary')) return { body: EMPTY_SUMMARY };
+      if (url.includes('/api/screenshots')) {
+        return {
+          body: {
+            screenshots: [
+              {
+                id: 'c0000000-0000-4000-8000-000000000002',
+                sessionId: SESSION_ID,
+                capturedAt: '2026-08-07T10:05:00.000Z',
+                format: 'jpeg',
+                width: 1920,
+                height: 1080,
+                byteSize: 123456,
+                trigger: 'navigation',
+                pageUrl: 'https://github.com/vercel/next.js',
+                domain: 'github.com',
+                pageTitle: 'Next.js',
+                analysisStatus: 'pending',
+                analysisError: null,
+                ocr: null,
+                analysis: null,
+              },
+            ],
+            total: 1,
+          },
+        };
+      }
+      if (url.includes('/api/timeline')) return { body: { activities: [] } };
+      if (url.includes('/api/sessions')) return { body: SESSIONS };
+      return { body: { events: [], total: 0 } };
+    });
+    render(<App />);
+    await screen.findByText('Top sites by activity');
+
+    fireEvent.click(screen.getByRole('button', { name: /7 Aug/ }));
+    fireEvent.click(await screen.findByRole('button', { name: 'AI analysis' }));
+
+    expect(await screen.findByText(/No AI analysis yet for this session/)).toBeTruthy();
+  });
+});
+
 describe('view switching', () => {
   it('starts on the overview view', async () => {
     stubFetch(defaultHandler);
@@ -564,7 +643,7 @@ describe('view switching', () => {
     expect(screen.queryByText('Recent events')).toBeNull();
   });
 
-  it('switches between all four views', async () => {
+  it('switches between all five views', async () => {
     stubFetch(defaultHandler);
     render(<App />);
     await screen.findByText('Top sites by activity');

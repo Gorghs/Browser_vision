@@ -3,8 +3,10 @@ import { EventTable } from './components/EventTable.js';
 import { FilterBar } from './components/FilterBar.js';
 import { Overview } from './components/Overview.js';
 import { ScreenshotGallery } from './components/ScreenshotGallery.js';
+import { SessionExplorer } from './components/SessionExplorer.js';
 import { SessionList } from './components/SessionList.js';
 import { Timeline } from './components/Timeline.js';
+import { formatDate } from './features/format.js';
 import { useActivityStore } from './store/activity-store.js';
 import type { ActivityView } from './store/activity-store.js';
 
@@ -13,6 +15,7 @@ const REFRESH_MS = 5000;
 
 const VIEWS: { id: ActivityView; label: string }[] = [
   { id: 'overview', label: 'Overview' },
+  { id: 'session', label: 'Session' },
   { id: 'events', label: 'Events' },
   { id: 'timeline', label: 'Timeline' },
   { id: 'screenshots', label: 'Screenshots' },
@@ -44,10 +47,12 @@ export function App() {
     return () => clearInterval(timer);
   }, [load]);
 
+  const selectedSession = sessions.find((session) => session.id === filters.sessionId);
+
   const count =
     view === 'overview'
       ? `${summary?.totals.events ?? 0} event${summary?.totals.events === 1 ? '' : 's'}`
-      : view === 'events'
+      : view === 'events' || view === 'session'
         ? `${total} event${total === 1 ? '' : 's'}`
         : view === 'timeline'
           ? `${activities.length} activit${activities.length === 1 ? 'y' : 'ies'}`
@@ -104,7 +109,12 @@ export function App() {
           <SessionList
             sessions={sessions}
             selectedId={filters.sessionId}
-            onSelect={(sessionId) => setFilter('sessionId', sessionId)}
+            onSelect={(sessionId) => {
+              setFilter('sessionId', sessionId);
+              // Picking a session opens its deep dive; picking it again clears
+              // the selection and returns to the current pane.
+              if (sessionId !== undefined) setView('session');
+            }}
           />
         </aside>
 
@@ -112,20 +122,33 @@ export function App() {
           <h2 className="text-xs font-medium tracking-wide text-slate-400 uppercase">
             {view === 'overview'
               ? 'Overview'
-              : view === 'events'
-                ? filters.sessionId === undefined
-                  ? 'Recent events'
-                  : 'Events in this session'
-                : view === 'timeline'
+              : view === 'session'
+                ? selectedSession === undefined
+                  ? 'Session explorer'
+                  : `Session from ${formatDate(selectedSession.startedAt)}`
+                : view === 'events'
                   ? filters.sessionId === undefined
-                    ? 'Recent timeline'
-                    : 'Timeline for this session'
-                  : filters.sessionId === undefined
-                    ? 'Recent screenshots'
-                    : 'Screenshots in this session'}
+                    ? 'Recent events'
+                    : 'Events in this session'
+                  : view === 'timeline'
+                    ? filters.sessionId === undefined
+                      ? 'Recent timeline'
+                      : 'Timeline for this session'
+                    : filters.sessionId === undefined
+                      ? 'Recent screenshots'
+                      : 'Screenshots in this session'}
           </h2>
 
           {view === 'overview' ? <Overview summary={summary} /> : null}
+          {view === 'session' ? (
+            <SessionExplorer
+              session={selectedSession}
+              events={events}
+              activities={activities}
+              screenshots={screenshots}
+              screenshotTotal={screenshotTotal}
+            />
+          ) : null}
           {view === 'events' ? <EventTable events={events} /> : null}
           {view === 'timeline' ? <Timeline activities={activities} /> : null}
           {view === 'screenshots' ? (
