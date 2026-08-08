@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { formatDuration, formatPath, formatSessionLength, humanizeEventType } from './format.js';
+import {
+  formatBytes,
+  formatDuration,
+  formatPath,
+  formatSessionLength,
+  humanizeCategory,
+  humanizeEventType,
+} from './format.js';
 
 describe('formatDuration', () => {
   it.each([
@@ -55,5 +62,28 @@ describe('humanizeEventType', () => {
     ['CLICK', 'Click'],
   ])('turns %s into %s', (type, expected) => {
     expect(humanizeEventType(type)).toBe(expected);
+  });
+});
+
+describe('humanizeCategory', () => {
+  it.each([
+    ['documentation', 'Documentation'],
+    ['research', 'Research'],
+    ['other', 'Other'],
+  ])('capitalizes %s', (category, expected) => {
+    expect(humanizeCategory(category)).toBe(expected);
+  });
+});
+
+describe('formatBytes', () => {
+  it.each([
+    [0, '0 B'],
+    [412, '412 B'],
+    [87 * 1024, '87 KB'],
+    [1023 * 1024, '1023 KB'],
+    [1024 * 1024, '1.0 MB'],
+    [1.2 * 1024 * 1024, '1.2 MB'],
+  ])('formats %i bytes as %s', (bytes, expected) => {
+    expect(formatBytes(bytes)).toBe(expected);
   });
 });

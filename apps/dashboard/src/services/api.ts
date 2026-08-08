@@ -1,5 +1,17 @@
-import { listEventsResponseSchema, listSessionsResponseSchema } from '@vab/types';
-import type { BrowserEventType, ListEventsResponse, ListSessionsResponse } from '@vab/types';
+import {
+  listEventsResponseSchema,
+  listScreenshotsResponseSchema,
+  listSessionsResponseSchema,
+  listTimelineResponseSchema,
+} from '@vab/types';
+import type {
+  AnalysisStatus,
+  BrowserEventType,
+  ListEventsResponse,
+  ListScreenshotsResponse,
+  ListSessionsResponse,
+  ListTimelineResponse,
+} from '@vab/types';
 
 /**
  * The dashboard's only route to data.
@@ -82,4 +94,73 @@ export async function fetchSessions(): Promise<ListSessionsResponse> {
   const parsed = listSessionsResponseSchema.safeParse(body);
   if (!parsed.success) throw new ApiError('The API returned sessions in an unexpected shape.');
   return parsed.data;
+}
+
+export interface TimelineQuery {
+  sessionId?: string | undefined;
+  limit?: number;
+}
+
+export async function fetchTimeline(query: TimelineQuery = {}): Promise<ListTimelineResponse> {
+  const body = await get('/api/timeline', {
+    sessionId: query.sessionId,
+    limit: query.limit ?? 50,
+  });
+
+  const parsed = listTimelineResponseSchema.safeParse(body);
+  if (!parsed.success) throw new ApiError('The API returned timeline data in an unexpected shape.');
+  return parsed.data;
+}
+
+export interface ScreenshotsQuery {
+  sessionId?: string | undefined;
+  status?: AnalysisStatus | undefined;
+  limit?: number;
+  offset?: number;
+}
+
+export async function fetchScreenshots(
+  query: ScreenshotsQuery = {},
+): Promise<ListScreenshotsResponse> {
+  const body = await get('/api/screenshots', {
+    sessionId: query.sessionId,
+    status: query.status,
+    limit: query.limit ?? 30,
+    offset: query.offset,
+  });
+
+  const parsed = listScreenshotsResponseSchema.safeParse(body);
+  if (!parsed.success) throw new ApiError('The API returned screenshots in an unexpected shape.');
+  return parsed.data;
+}
+
+/**
+ * Loads a screenshot's bytes and hands back a URL the page can display.
+ *
+ * A plain `<img src>` cannot carry the `x-api-key` header the image route
+ * requires once the API is protected, so the bytes are fetched through the same
+ * authenticated path as everything else and made viewable as an object URL.
+ * The caller must not depend on the URL once it is revoked, so this is used by
+ * a component that owns the URL's lifetime.
+ */
+export async function fetchScreenshotImage(id: string): Promise<string> {
+  const url = `${API_BASE_URL}/api/screenshots/${id}/image`;
+
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      headers: API_KEY ? { 'x-api-key': API_KEY } : {},
+    });
+  } catch {
+    throw new ApiError('Could not reach the API to load the screenshot image.');
+  }
+
+  if (!response.ok) {
+    throw new ApiError(
+      `Loading the screenshot failed with ${String(response.status)}.`,
+      response.status,
+    );
+  }
+
+  return URL.createObjectURL(await response.blob());
 }

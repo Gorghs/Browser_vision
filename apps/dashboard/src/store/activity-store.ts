@@ -1,6 +1,18 @@
 import { create } from 'zustand';
-import type { BrowserEvent, BrowserEventType, Session } from '@vab/types';
-import { ApiError, fetchEvents, fetchSessions } from '../services/api.js';
+import type {
+  BrowserEvent,
+  BrowserEventType,
+  Screenshot,
+  Session,
+  TimelineActivity,
+} from '@vab/types';
+import {
+  ApiError,
+  fetchEvents,
+  fetchScreenshots,
+  fetchSessions,
+  fetchTimeline,
+} from '../services/api.js';
 
 export interface ActivityFilters {
   type: BrowserEventType | undefined;
@@ -8,11 +20,18 @@ export interface ActivityFilters {
   sessionId: string | undefined;
 }
 
+/** Which read the main pane is showing. */
+export type ActivityView = 'events' | 'timeline' | 'screenshots';
+
 interface ActivityState {
   events: BrowserEvent[];
   sessions: Session[];
   total: number;
+  activities: TimelineActivity[];
+  screenshots: Screenshot[];
+  screenshotTotal: number;
   filters: ActivityFilters;
+  view: ActivityView;
   loading: boolean;
   error: string | null;
   /** Null until the first successful load, so "never loaded" reads differently
@@ -22,6 +41,7 @@ interface ActivityState {
   load: () => Promise<void>;
   setFilter: <K extends keyof ActivityFilters>(key: K, value: ActivityFilters[K]) => void;
   clearFilters: () => void;
+  setView: (view: ActivityView) => void;
 }
 
 const EMPTY_FILTERS: ActivityFilters = { type: undefined, domain: '', sessionId: undefined };
@@ -30,7 +50,11 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
   events: [],
   sessions: [],
   total: 0,
+  activities: [],
+  screenshots: [],
+  screenshotTotal: 0,
   filters: EMPTY_FILTERS,
+  view: 'events',
   loading: false,
   error: null,
   lastLoadedAt: null,
@@ -40,21 +64,27 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
     const { filters } = get();
 
     try {
-      // Both views reflect the same instant, rather than the sessions list
-      // being a request older than the events beneath it.
-      const [events, sessions] = await Promise.all([
+      // Every pane reflects the same instant, rather than the timeline being a
+      // request older than the events beneath it. The selected session scopes
+      // each read; the type and domain filters only apply to the event table.
+      const [events, sessions, timeline, screenshots] = await Promise.all([
         fetchEvents({
           type: filters.type,
           domain: filters.domain.trim() || undefined,
           sessionId: filters.sessionId,
         }),
         fetchSessions(),
+        fetchTimeline({ sessionId: filters.sessionId }),
+        fetchScreenshots({ sessionId: filters.sessionId }),
       ]);
 
       set({
         events: events.events,
         total: events.total,
         sessions: sessions.sessions,
+        activities: timeline.activities,
+        screenshots: screenshots.screenshots,
+        screenshotTotal: screenshots.total,
         loading: false,
         lastLoadedAt: new Date(),
       });
@@ -74,5 +104,9 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
   clearFilters: () => {
     set({ filters: EMPTY_FILTERS });
     void get().load();
+  },
+
+  setView: (view) => {
+    set({ view });
   },
 }));

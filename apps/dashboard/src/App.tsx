@@ -1,24 +1,38 @@
 import { useEffect } from 'react';
 import { EventTable } from './components/EventTable.js';
 import { FilterBar } from './components/FilterBar.js';
+import { ScreenshotGallery } from './components/ScreenshotGallery.js';
 import { SessionList } from './components/SessionList.js';
+import { Timeline } from './components/Timeline.js';
 import { useActivityStore } from './store/activity-store.js';
+import type { ActivityView } from './store/activity-store.js';
 
 /** Activity keeps arriving while the page is open, so it refreshes itself. */
 const REFRESH_MS = 5000;
+
+const VIEWS: { id: ActivityView; label: string }[] = [
+  { id: 'events', label: 'Events' },
+  { id: 'timeline', label: 'Timeline' },
+  { id: 'screenshots', label: 'Screenshots' },
+];
 
 export function App() {
   const {
     events,
     sessions,
     total,
+    activities,
+    screenshots,
+    screenshotTotal,
     filters,
+    view,
     loading,
     error,
     lastLoadedAt,
     load,
     setFilter,
     clearFilters,
+    setView,
   } = useActivityStore();
 
   useEffect(() => {
@@ -27,15 +41,20 @@ export function App() {
     return () => clearInterval(timer);
   }, [load]);
 
+  const count =
+    view === 'events'
+      ? `${total} event${total === 1 ? '' : 's'}`
+      : view === 'timeline'
+        ? `${activities.length} activit${activities.length === 1 ? 'y' : 'ies'}`
+        : `${screenshotTotal} capture${screenshotTotal === 1 ? '' : 's'}`;
+
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-6 p-6">
       <header className="flex flex-wrap items-baseline justify-between gap-2">
         <div>
           <h1 className="text-lg font-semibold text-slate-100">Browser activity</h1>
           <p className="text-sm text-slate-400">
-            {lastLoadedAt === null
-              ? 'Loading…'
-              : `${total} event${total === 1 ? '' : 's'} recorded`}
+            {lastLoadedAt === null ? 'Loading…' : `${count} recorded`}
           </p>
         </div>
         <span className="text-xs text-slate-500">
@@ -53,7 +72,26 @@ export function App() {
         </p>
       ) : null}
 
-      <FilterBar filters={filters} onChange={setFilter} onClear={clearFilters} />
+      <nav className="flex gap-1" aria-label="Views">
+        {VIEWS.map(({ id, label }) => (
+          <button
+            key={id}
+            type="button"
+            onClick={() => setView(id)}
+            className={`rounded-md px-3 py-1.5 text-sm transition-colors ${
+              view === id
+                ? 'bg-[var(--color-accent)]/15 text-[var(--color-accent)]'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </nav>
+
+      {view === 'events' ? (
+        <FilterBar filters={filters} onChange={setFilter} onClear={clearFilters} />
+      ) : null}
 
       <div className="grid gap-6 md:grid-cols-[16rem_1fr]">
         <aside className="flex flex-col gap-2">
@@ -67,9 +105,24 @@ export function App() {
 
         <section className="flex flex-col gap-2">
           <h2 className="text-xs font-medium tracking-wide text-slate-400 uppercase">
-            {filters.sessionId === undefined ? 'Recent events' : 'Events in this session'}
+            {view === 'events'
+              ? filters.sessionId === undefined
+                ? 'Recent events'
+                : 'Events in this session'
+              : view === 'timeline'
+                ? filters.sessionId === undefined
+                  ? 'Recent timeline'
+                  : 'Timeline for this session'
+                : filters.sessionId === undefined
+                  ? 'Recent screenshots'
+                  : 'Screenshots in this session'}
           </h2>
-          <EventTable events={events} />
+
+          {view === 'events' ? <EventTable events={events} /> : null}
+          {view === 'timeline' ? <Timeline activities={activities} /> : null}
+          {view === 'screenshots' ? (
+            <ScreenshotGallery screenshots={screenshots} total={screenshotTotal} />
+          ) : null}
         </section>
       </div>
     </div>

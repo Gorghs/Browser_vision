@@ -53,3 +53,16 @@ export function humanizeEventType(type: string): string {
   if (first === undefined) return type;
   return [first.charAt(0).toUpperCase() + first.slice(1), ...rest].join(' ');
 }
+
+/** Turns documentation into "Documentation". */
+export function humanizeCategory(category: string): string {
+  return category.charAt(0).toUpperCase() + category.slice(1);
+}
+
+/** Compact byte size: "412 B", "87 KB", "1.2 MB". */
+export function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${String(bytes)} B`;
+  const kb = bytes / 1024;
+  if (kb < 1024) return `${String(Math.round(kb))} KB`;
+  return `${(kb / 1024).toFixed(1)} MB`;
+}
