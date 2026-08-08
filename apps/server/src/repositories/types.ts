@@ -32,6 +32,13 @@ export interface EventRepository {
   ): Promise<{ inserted: number; skipped: number }>;
   /** A null userId reads across every installation; see ARCHITECTURE.md. */
   list(userId: string | null, filter: EventFilter): Promise<EventPage>;
+  /**
+   * Every event in a session, oldest first, up to `max`.
+   *
+   * Separate from `list` because the timeline builder needs a whole session in
+   * order, which the paged, newest-first endpoint deliberately cannot give it.
+   */
+  listForSession(sessionId: string, max: number): Promise<BrowserEvent[]>;
 }
 
 /** Session details derived from a batch of events. */

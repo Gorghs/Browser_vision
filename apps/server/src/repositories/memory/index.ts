@@ -129,6 +129,18 @@ export function createMemoryRepositories(): Repositories {
       return Promise.resolve({ inserted, skipped });
     },
 
+    listForSession(sessionId, max) {
+      const ordered = [...events.values()]
+        .filter((event) => event.sessionId === sessionId)
+        .sort((a, b) => a.timestamp.localeCompare(b.timestamp))
+        .slice(0, max)
+        .map((event) => {
+          const { userId: _ownerId, ...rest } = event;
+          return rest;
+        });
+      return Promise.resolve(ordered);
+    },
+
     list(userId, filter: EventFilter) {
       const matching = [...events.values()]
         .filter((event) => userId === null || event.userId === userId)

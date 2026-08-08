@@ -173,6 +173,21 @@ export function createSupabaseRepositories(client: SupabaseClient): Repositories
       return { inserted, skipped: incoming.length - inserted };
     },
 
+    async listForSession(sessionId, max) {
+      const { data, error } = await client
+        .from('events')
+        .select(
+          'id, session_id, type, occurred_at, url, domain, title, browser_tab_id, window_id, metadata',
+        )
+        .eq('session_id', sessionId)
+        .order('occurred_at', { ascending: true })
+        .limit(max)
+        .returns<EventRow[]>();
+
+      if (error) fail('Listing session events', error);
+      return data.map(toEvent);
+    },
+
     async list(userId, filter: EventFilter) {
       let query = client
         .from('events')
