@@ -193,7 +193,7 @@ limitations are documented in the project's architecture notes.
 
 ## Credits
 
-Built with the help of **Claude**, which assisted with the documentation, code comment
+Built with the help of **Claude and my brain**, who assisted with the documentation, code comment
 generation and numerous bug fixes across all three modules.
 
 > **Let AI accelerate your thinking, never replace it.**
