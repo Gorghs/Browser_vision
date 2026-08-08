@@ -201,6 +201,12 @@ export function createSupabaseRepositories(client: SupabaseClient): Repositories
       if (filter.sessionId !== undefined) query = query.eq('session_id', filter.sessionId);
       if (filter.type !== undefined) query = query.eq('type', filter.type);
       if (filter.domain !== undefined) query = query.eq('domain', filter.domain);
+      if (filter.q !== undefined) {
+        // PostgREST `ilike` is case-insensitive; `%q%` matches anywhere.
+        query = query.or(
+          `url.ilike.%${filter.q}%,domain.ilike.%${filter.q}%,title.ilike.%${filter.q}%`,
+        );
+      }
 
       const { data, error, count } = await query
         .order('occurred_at', { ascending: false })

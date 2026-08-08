@@ -4,6 +4,7 @@ import type {
   BrowserEvent,
   BrowserEventType,
   Screenshot,
+  SearchResponse,
   Session,
   TimelineActivity,
 } from '@vab/types';
@@ -14,6 +15,7 @@ import {
   fetchScreenshots,
   fetchSessions,
   fetchTimeline,
+  searchActivity,
 } from '../services/api.js';
 
 export interface ActivityFilters {
@@ -23,7 +25,8 @@ export interface ActivityFilters {
 }
 
 /** Which read the main pane is showing. */
-export type ActivityView = 'overview' | 'session' | 'events' | 'timeline' | 'screenshots';
+export type ActivityView =
+  'overview' | 'session' | 'search' | 'events' | 'timeline' | 'screenshots';
 
 interface ActivityState {
   events: BrowserEvent[];
@@ -33,6 +36,8 @@ interface ActivityState {
   screenshots: Screenshot[];
   screenshotTotal: number;
   summary: AnalyticsSummary | null;
+  searchResults: SearchResponse | null;
+  searchRunning: boolean;
   filters: ActivityFilters;
   view: ActivityView;
   loading: boolean;
@@ -45,6 +50,9 @@ interface ActivityState {
   setFilter: <K extends keyof ActivityFilters>(key: K, value: ActivityFilters[K]) => void;
   clearFilters: () => void;
   setView: (view: ActivityView) => void;
+  /** Runs a keyword search; a blank query clears the previous results. */
+  runSearch: (query: string) => Promise<void>;
+  clearSearch: () => void;
 }
 
 const EMPTY_FILTERS: ActivityFilters = { type: undefined, domain: '', sessionId: undefined };
@@ -57,6 +65,8 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
   screenshots: [],
   screenshotTotal: 0,
   summary: null,
+  searchResults: null,
+  searchRunning: false,
   filters: EMPTY_FILTERS,
   view: 'overview',
   loading: false,
@@ -114,5 +124,30 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
 
   setView: (view) => {
     set({ view });
+  },
+
+  runSearch: async (query) => {
+    const trimmed = query.trim();
+    if (trimmed.length === 0) {
+      set({ searchResults: null, searchRunning: false });
+      return;
+    }
+    set({ searchRunning: true, error: null });
+    try {
+      const searchResults = await searchActivity({
+        q: trimmed,
+        sessionId: get().filters.sessionId,
+      });
+      set({ searchResults, searchRunning: false });
+    } catch (cause) {
+      set({
+        searchRunning: false,
+        error: cause instanceof ApiError ? cause.message : 'Something went wrong searching.',
+      });
+    }
+  },
+
+  clearSearch: () => {
+    set({ searchResults: null, searchRunning: false });
   },
 }));

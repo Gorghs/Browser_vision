@@ -4,6 +4,7 @@ import type {
   AnalysisStatus,
   Screenshot,
   ScreenshotFormat,
+  StoredAnalysis,
   TimelineActivity,
   VisionAnalysis,
 } from '@vab/types';
@@ -218,6 +219,13 @@ export function createSupabaseVisualRepositories(client: SupabaseClient): Visual
       if (userId !== null) query = query.eq('user_id', userId);
       if (filter.sessionId !== undefined) query = query.eq('session_id', filter.sessionId);
       if (filter.status !== undefined) query = query.eq('analysis_status', filter.status);
+      if (filter.q !== undefined) {
+        // Matching on the embedded ocr_results row keeps OCR text searchable
+        // without the join escaping this query.
+        query = query.or(
+          `page_url.ilike.%${filter.q}%,page_title.ilike.%${filter.q}%,domain.ilike.%${filter.q}%,ocr_results.text.ilike.%${filter.q}%`,
+        );
+      }
 
       const { data, error, count } = await query
         .order('captured_at', { ascending: false })
@@ -372,6 +380,32 @@ export function createSupabaseVisualRepositories(client: SupabaseClient): Visual
         }))
         .sort((a, b) => a.capturedAt.localeCompare(b.capturedAt));
     },
+
+    async search(_userId, sessionId, q, limit) {
+      let query = client.from('ai_analyses').select('*');
+
+      if (sessionId !== undefined) query = query.eq('session_id', sessionId);
+      query = query.or(
+        `page_type.ilike.%${q}%,purpose.ilike.%${q}%,visible_content_summary.ilike.%${q}%,user_intent.ilike.%${q}%,current_task.ilike.%${q}%,summary.ilike.%${q}%`,
+      );
+
+      const { data, error } = await query
+        .order('created_at', { ascending: false })
+        .limit(limit)
+        .returns<AnalysisRow[]>();
+
+      if (error) fail('Searching analyses', error);
+
+      return data.map<StoredAnalysis>((row) => ({
+        id: row.id,
+        screenshotId: row.screenshot_id,
+        sessionId: row.session_id,
+        provider: row.provider,
+        model: row.model,
+        createdAt: new Date(row.created_at).toISOString(),
+        ...toVisionAnalysis(row),
+      }));
+    },
   };
 
   const timeline: TimelineRepository = {
@@ -431,6 +465,51 @@ export function createSupabaseVisualRepositories(client: SupabaseClient): Visual
         >();
 
       if (error) fail('Listing timeline activities', error);
+
+      return data.map<TimelineActivity>((row) => ({
+        id: row.id,
+        sessionId: row.session_id,
+        startedAt: new Date(row.started_at).toISOString(),
+        endedAt: new Date(row.ended_at).toISOString(),
+        title: row.title,
+        description: row.description,
+        category: row.category as ActivityCategory,
+        domains: row.domains,
+        eventCount: row.event_count,
+        source: row.source as 'ai' | 'derived',
+      }));
+    },
+
+    async search(userId, sessionId, q, limit) {
+      let query = client
+        .from('timeline_activities')
+        .select(
+          'id, session_id, started_at, ended_at, title, description, category, domains, event_count, source',
+        )
+        .or(`title.ilike.%${q}%,description.ilike.%${q}%`);
+
+      if (userId !== null) query = query.eq('user_id', userId);
+      if (sessionId !== undefined) query = query.eq('session_id', sessionId);
+
+      const { data, error } = await query
+        .order('started_at', { ascending: false })
+        .limit(limit)
+        .returns<
+          {
+            id: string;
+            session_id: string;
+            started_at: string;
+            ended_at: string;
+            title: string;
+            description: string | null;
+            category: string;
+            domains: string[];
+            event_count: number;
+            source: string;
+          }[]
+        >();
+
+      if (error) fail('Searching timeline activities', error);
 
       return data.map<TimelineActivity>((row) => ({
         id: row.id,

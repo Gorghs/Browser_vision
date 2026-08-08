@@ -137,6 +137,78 @@ const SCREENSHOTS = {
   total: 1,
 };
 
+const SEARCH_RESULTS = {
+  query: 'router',
+  events: [
+    {
+      id: 'a0000000-0000-4000-8000-000000000001',
+      sessionId: SESSION_ID,
+      type: 'NAVIGATION',
+      timestamp: '2026-08-07T10:00:02.000Z',
+      url: 'https://github.com/vercel/next.js/issues/58123',
+      domain: 'github.com',
+      title: 'Router cache not invalidating',
+      metadata: {},
+    },
+  ],
+  screenshots: [
+    {
+      id: 'c0000000-0000-4000-8000-000000000001',
+      sessionId: SESSION_ID,
+      capturedAt: '2026-08-07T10:05:00.000Z',
+      format: 'jpeg',
+      width: 1920,
+      height: 1080,
+      byteSize: 123456,
+      trigger: 'navigation',
+      pageUrl: 'https://github.com/vercel/next.js/issues/58123',
+      domain: 'github.com',
+      pageTitle: 'Router cache not invalidating',
+      analysisStatus: 'completed',
+      analysisError: null,
+      ocr: null,
+      analysis: null,
+    },
+  ],
+  activities: [
+    {
+      id: 'b0000000-0000-4000-8000-000000000001',
+      sessionId: SESSION_ID,
+      startedAt: '2026-08-07T10:00:00.000Z',
+      endedAt: '2026-08-07T10:20:00.000Z',
+      title: 'Investigating a Next.js routing issue',
+      description: 'Read the GitHub issue thread and the linked documentation.',
+      category: 'development',
+      domains: ['github.com', 'nextjs.org'],
+      eventCount: 24,
+      source: 'ai',
+    },
+  ],
+  analyses: [
+    {
+      id: 'd0000000-0000-4000-8000-000000000001',
+      screenshotId: 'c0000000-0000-4000-8000-000000000001',
+      sessionId: SESSION_ID,
+      provider: 'gemini',
+      model: 'gemini-2.0-flash',
+      createdAt: '2026-08-07T10:06:00.000Z',
+      page: {
+        pageType: 'github_issue',
+        category: 'development',
+        purpose: 'Discussing a bug report for a software library.',
+        importantElements: ['issue title', 'description', 'comments'],
+      },
+      activity: {
+        userIntent: 'To understand a reported routing bug.',
+        currentTask: 'Investigating a Next.js routing issue',
+        activityCategory: 'development',
+        summary: 'Reading a GitHub issue about router cache invalidation.',
+        confidence: 0.85,
+      },
+    },
+  ],
+};
+
 function stubFetch(handler: (url: string) => { status?: number; body?: unknown; image?: boolean }) {
   const spy = vi.fn((input: string | URL) => {
     const url = String(input);
@@ -162,6 +234,7 @@ function stubFetch(handler: (url: string) => { status?: number; body?: unknown; 
 function defaultHandler(url: string) {
   if (url.endsWith('/image')) return { image: true };
   if (url.includes('/api/analytics/summary')) return { body: SUMMARY };
+  if (url.includes('/api/search')) return { body: SEARCH_RESULTS };
   if (url.includes('/api/timeline')) return { body: TIMELINE };
   if (url.includes('/api/screenshots')) return { body: SCREENSHOTS };
   if (url.includes('/api/sessions')) return { body: SESSIONS };
@@ -178,6 +251,8 @@ beforeEach(() => {
     screenshots: [],
     screenshotTotal: 0,
     summary: null,
+    searchResults: null,
+    searchRunning: false,
     filters: { type: undefined, domain: '', sessionId: undefined },
     view: 'overview',
     loading: false,
@@ -643,7 +718,7 @@ describe('view switching', () => {
     expect(screen.queryByText('Recent events')).toBeNull();
   });
 
-  it('switches between all five views', async () => {
+  it('switches between all six views', async () => {
     stubFetch(defaultHandler);
     render(<App />);
     await screen.findByText('Top sites by activity');
@@ -657,7 +732,47 @@ describe('view switching', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Screenshots' }));
     expect(await screen.findByText('Recent screenshots')).toBeTruthy();
 
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }));
+    expect(await screen.findByRole('searchbox', { name: 'Search query' })).toBeTruthy();
+
     fireEvent.click(screen.getByRole('button', { name: 'Overview' }));
     expect(await screen.findByText('Top sites by activity')).toBeTruthy();
+  });
+
+  it('runs a keyword search and shows grouped results', async () => {
+    stubFetch(defaultHandler);
+    render(<App />);
+    await screen.findByText('Top sites by activity');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }));
+
+    const input = await screen.findByRole('searchbox', { name: 'Search query' });
+    fireEvent.change(input, { target: { value: 'router' } });
+    fireEvent.submit(input.closest('form') as HTMLFormElement);
+
+    expect(await screen.findByText('Events (1)')).toBeTruthy();
+    expect(screen.getByText('Screenshots (1)')).toBeTruthy();
+    expect(screen.getByText('Timeline (1)')).toBeTruthy();
+    expect(screen.getByText('AI analysis (1)')).toBeTruthy();
+    expect(screen.getByText('4 matches for “router”')).toBeTruthy();
+  });
+
+  it('clears the previous results when the query is emptied', async () => {
+    stubFetch(defaultHandler);
+    render(<App />);
+    await screen.findByText('Top sites by activity');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }));
+
+    const input = await screen.findByRole('searchbox', { name: 'Search query' });
+    fireEvent.change(input, { target: { value: 'router' } });
+    fireEvent.submit(input.closest('form') as HTMLFormElement);
+    expect(await screen.findByText('Events (1)')).toBeTruthy();
+
+    fireEvent.change(input, { target: { value: '' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
+
+    await waitFor(() => expect(screen.queryByText('Events (1)')).toBeNull());
+    expect(screen.getByText(/Search matches events by URL/)).toBeTruthy();
   });
 });

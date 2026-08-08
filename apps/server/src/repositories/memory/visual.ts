@@ -2,6 +2,7 @@ import type {
   AnalysisStatus,
   OcrResult,
   Screenshot,
+  StoredAnalysis,
   TimelineActivity,
   VisionAnalysis,
 } from '@vab/types';
@@ -114,6 +115,7 @@ export function createMemoryVisualRepositories(
     },
 
     list(userId, filter) {
+      const needle = filter.q?.toLowerCase();
       const matching = [...screenshots.values()]
         .filter((screenshot) => userId === null || screenshot.userId === userId)
         .filter(
@@ -124,6 +126,17 @@ export function createMemoryVisualRepositories(
           (screenshot) =>
             filter.status === undefined || screenshot.analysisStatus === filter.status,
         )
+        .filter((screenshot) => {
+          if (needle === undefined) return true;
+          const pageFields = [screenshot.pageUrl, screenshot.pageTitle, screenshot.domain];
+          if (
+            pageFields.some((value) => value !== undefined && value.toLowerCase().includes(needle))
+          ) {
+            return true;
+          }
+          const text = ocrResults.get(screenshot.id)?.text;
+          return text !== undefined && text.toLowerCase().includes(needle);
+        })
         .sort((a, b) => b.capturedAt.localeCompare(a.capturedAt));
 
       const page = matching.slice(filter.offset, filter.offset + filter.limit).map((stored) => {
@@ -192,6 +205,39 @@ export function createMemoryVisualRepositories(
 
       return Promise.resolve(rows);
     },
+
+    search(_userId, sessionId, q, limit) {
+      // Analyses are scoped by session (their rows carry no user id; reads are
+      // unscoped today), so `userId` is accepted for interface consistency but
+      // only the session narrows the search.
+      const needle = q.toLowerCase();
+      const matching = analyses
+        .filter((row) => sessionId === undefined || row.sessionId === sessionId)
+        .filter((row) =>
+          [
+            row.page.pageType,
+            row.page.purpose,
+            row.page.visibleContentSummary,
+            row.activity.userIntent,
+            row.activity.currentTask,
+            row.activity.summary,
+          ].some((value) => value !== undefined && value.toLowerCase().includes(needle)),
+        )
+        .slice(0, limit);
+
+      return Promise.resolve(
+        matching.map<StoredAnalysis>((row) => ({
+          id: row.id,
+          screenshotId: row.screenshotId,
+          sessionId: row.sessionId,
+          provider: row.provider,
+          model: row.model,
+          createdAt: row.createdAt,
+          page: row.page,
+          activity: row.activity,
+        })),
+      );
+    },
   };
 
   const timelineRepository: TimelineRepository = {
@@ -210,6 +256,23 @@ export function createMemoryVisualRepositories(
         .sort((a, b) => b.startedAt.localeCompare(a.startedAt));
 
       return Promise.resolve(all.slice(0, limit));
+    },
+
+    search(userId, sessionId, q, limit) {
+      const needle = q.toLowerCase();
+      const matching = [...timelines.entries()]
+        .filter(([id]) => sessionId === undefined || id === sessionId)
+        .filter(([id]) => userId === null || timelineOwners.get(id) === userId)
+        .flatMap(([, activities]) => activities)
+        .filter(
+          (activity) =>
+            activity.title.toLowerCase().includes(needle) ||
+            (activity.description !== null && activity.description.toLowerCase().includes(needle)),
+        )
+        .sort((a, b) => b.startedAt.localeCompare(a.startedAt))
+        .slice(0, limit);
+
+      return Promise.resolve(matching);
     },
   };
 

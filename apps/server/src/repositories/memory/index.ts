@@ -144,11 +144,18 @@ export function createMemoryRepositories(): Repositories {
     },
 
     list(userId, filter: EventFilter) {
+      const needle = filter.q?.toLowerCase();
       const matching = [...events.values()]
         .filter((event) => userId === null || event.userId === userId)
         .filter((event) => filter.sessionId === undefined || event.sessionId === filter.sessionId)
         .filter((event) => filter.type === undefined || event.type === filter.type)
         .filter((event) => filter.domain === undefined || event.domain === filter.domain)
+        .filter((event) => {
+          if (needle === undefined) return true;
+          return [event.url, event.domain, event.title].some(
+            (value) => value !== undefined && value.toLowerCase().includes(needle),
+          );
+        })
         .sort((a, b) => b.timestamp.localeCompare(a.timestamp));
 
       const page: EventPage = {

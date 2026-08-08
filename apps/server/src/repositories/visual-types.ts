@@ -3,6 +3,7 @@ import type {
   OcrResult,
   Screenshot,
   ScreenshotFormat,
+  StoredAnalysis,
   TimelineActivity,
   VisionAnalysis,
 } from '@vab/types';
@@ -43,6 +44,8 @@ export interface PendingScreenshot {
 export interface ScreenshotFilter {
   sessionId?: string | undefined;
   status?: AnalysisStatus | undefined;
+  /** Free-text keyword matched against page fields and OCR text. */
+  q?: string | undefined;
   limit: number;
   offset: number;
 }
@@ -86,6 +89,13 @@ export interface AnalysisRepository {
   listForSession(
     sessionId: string,
   ): Promise<{ screenshotId: string; capturedAt: string; analysis: VisionAnalysis }[]>;
+  /** Analyses whose summaries, intents, tasks, purposes or page types matched. */
+  search(
+    userId: string | null,
+    sessionId: string | undefined,
+    q: string,
+    limit: number,
+  ): Promise<StoredAnalysis[]>;
 }
 
 export interface TimelineRepository {
@@ -104,6 +114,13 @@ export interface TimelineRepository {
   list(
     userId: string | null,
     sessionId: string | undefined,
+    limit: number,
+  ): Promise<TimelineActivity[]>;
+  /** Activities whose titles or descriptions matched. */
+  search(
+    userId: string | null,
+    sessionId: string | undefined,
+    q: string,
     limit: number,
   ): Promise<TimelineActivity[]>;
 }

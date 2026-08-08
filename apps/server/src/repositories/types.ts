@@ -12,6 +12,8 @@ export interface EventFilter extends Pick<ListEventsQuery, 'limit' | 'offset'> {
   sessionId?: string | undefined;
   type?: BrowserEvent['type'] | undefined;
   domain?: string | undefined;
+  /** Free-text keyword matched against URLs, domains and titles. */
+  q?: string | undefined;
 }
 
 export interface EventPage {

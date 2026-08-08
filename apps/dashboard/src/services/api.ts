@@ -4,6 +4,7 @@ import {
   listScreenshotsResponseSchema,
   listSessionsResponseSchema,
   listTimelineResponseSchema,
+  searchResponseSchema,
 } from '@vab/types';
 import type {
   AnalyticsSummaryResponse,
@@ -13,6 +14,7 @@ import type {
   ListScreenshotsResponse,
   ListSessionsResponse,
   ListTimelineResponse,
+  SearchResponse,
 } from '@vab/types';
 
 /**
@@ -103,6 +105,25 @@ export async function fetchAnalyticsSummary(): Promise<AnalyticsSummaryResponse>
 
   const parsed = analyticsSummaryResponseSchema.safeParse(body);
   if (!parsed.success) throw new ApiError('The API returned analytics in an unexpected shape.');
+  return parsed.data;
+}
+
+export interface SearchQuery {
+  q: string;
+  sessionId?: string | undefined;
+  limit?: number;
+}
+
+export async function searchActivity(query: SearchQuery): Promise<SearchResponse> {
+  const body = await get('/api/search', {
+    q: query.q,
+    sessionId: query.sessionId,
+    limit: query.limit ?? 20,
+  });
+
+  const parsed = searchResponseSchema.safeParse(body);
+  if (!parsed.success)
+    throw new ApiError('The API returned search results in an unexpected shape.');
   return parsed.data;
 }
 

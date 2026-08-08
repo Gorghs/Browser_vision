@@ -3,6 +3,7 @@ import { EventTable } from './components/EventTable.js';
 import { FilterBar } from './components/FilterBar.js';
 import { Overview } from './components/Overview.js';
 import { ScreenshotGallery } from './components/ScreenshotGallery.js';
+import { SearchView } from './components/SearchView.js';
 import { SessionExplorer } from './components/SessionExplorer.js';
 import { SessionList } from './components/SessionList.js';
 import { Timeline } from './components/Timeline.js';
@@ -16,6 +17,7 @@ const REFRESH_MS = 5000;
 const VIEWS: { id: ActivityView; label: string }[] = [
   { id: 'overview', label: 'Overview' },
   { id: 'session', label: 'Session' },
+  { id: 'search', label: 'Search' },
   { id: 'events', label: 'Events' },
   { id: 'timeline', label: 'Timeline' },
   { id: 'screenshots', label: 'Screenshots' },
@@ -30,6 +32,8 @@ export function App() {
     screenshots,
     screenshotTotal,
     summary,
+    searchResults,
+    searchRunning,
     filters,
     view,
     loading,
@@ -39,6 +43,8 @@ export function App() {
     setFilter,
     clearFilters,
     setView,
+    runSearch,
+    clearSearch,
   } = useActivityStore();
 
   useEffect(() => {
@@ -56,7 +62,19 @@ export function App() {
         ? `${total} event${total === 1 ? '' : 's'}`
         : view === 'timeline'
           ? `${activities.length} activit${activities.length === 1 ? 'y' : 'ies'}`
-          : `${screenshotTotal} capture${screenshotTotal === 1 ? '' : 's'}`;
+          : view === 'screenshots'
+            ? `${screenshotTotal} capture${screenshotTotal === 1 ? '' : 's'}`
+            : searchResults === null
+              ? 'search'
+              : `${searchResults.events.length + searchResults.screenshots.length + searchResults.activities.length + searchResults.analyses.length} match${
+                  searchResults.events.length +
+                    searchResults.screenshots.length +
+                    searchResults.activities.length +
+                    searchResults.analyses.length ===
+                  1
+                    ? ''
+                    : 'es'
+                }`;
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-6 p-6">
@@ -134,9 +152,11 @@ export function App() {
                     ? filters.sessionId === undefined
                       ? 'Recent timeline'
                       : 'Timeline for this session'
-                    : filters.sessionId === undefined
-                      ? 'Recent screenshots'
-                      : 'Screenshots in this session'}
+                    : view === 'screenshots'
+                      ? filters.sessionId === undefined
+                        ? 'Recent screenshots'
+                        : 'Screenshots in this session'
+                      : 'Search'}
           </h2>
 
           {view === 'overview' ? <Overview summary={summary} /> : null}
@@ -153,6 +173,19 @@ export function App() {
           {view === 'timeline' ? <Timeline activities={activities} /> : null}
           {view === 'screenshots' ? (
             <ScreenshotGallery screenshots={screenshots} total={screenshotTotal} />
+          ) : null}
+          {view === 'search' ? (
+            <SearchView
+              query={searchResults?.query ?? ''}
+              running={searchRunning}
+              error={error}
+              events={searchResults?.events ?? []}
+              screenshots={searchResults?.screenshots ?? []}
+              activities={searchResults?.activities ?? []}
+              analyses={searchResults?.analyses ?? []}
+              onSearch={(query) => void runSearch(query)}
+              onClear={clearSearch}
+            />
           ) : null}
         </section>
       </div>

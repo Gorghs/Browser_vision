@@ -7,3 +7,4 @@ export * from './vision.js';
 export * from './screenshot.js';
 export * from './timeline.js';
 export * from './analytics.js';
+export * from './search.js';
