@@ -6,13 +6,13 @@ import type { Logger } from './lib/logger.js';
 import { requireApiKey } from './middleware/api-key.js';
 import { errorHandler, notFoundHandler } from './middleware/error-handler.js';
 import { requestLogger } from './middleware/request-logger.js';
-import type { Repositories } from './repositories/types.js';
+import type { Persistence } from './repositories/index.js';
 import { createHealthRouter } from './routes/health.js';
 import { createApiRouter } from './routes/index.js';
 
 export interface AppOptions {
   config: AppConfig;
-  repositories: Repositories;
+  persistence: Persistence;
   logger: Logger;
 }
 
@@ -22,7 +22,7 @@ export interface AppOptions {
  * Separated from process startup so tests can drive a real app over HTTP
  * without binding a port or reading the environment.
  */
-export function createApp({ config, repositories, logger }: AppOptions): Express {
+export function createApp({ config, persistence, logger }: AppOptions): Express {
   const app = express();
 
   // Express advertises itself by default; there is no reason to tell callers
@@ -52,11 +52,13 @@ export function createApp({ config, repositories, logger }: AppOptions): Express
 
   app.use(requestLogger(logger));
 
-  app.use(createHealthRouter(repositories));
+  app.use(createHealthRouter(persistence, config));
   app.use(
     '/api',
     createApiRouter({
-      repositories,
+      repositories: persistence.repositories,
+      visual: persistence.visual,
+      store: persistence.store,
       auth: requireApiKey({ apiKey: config.apiKey, logger }),
     }),
   );

@@ -6,6 +6,9 @@ packages:
 # need at install time; nothing else is granted a postinstall script.
 allowBuilds:
   esbuild: true
+  # tesseract.js fetches its language data at first use, not at install, so its
+  # postinstall script has nothing to do here.
+  tesseract.js: false
 
 minimumReleaseAgeExclude:
   - vite@8.2.1

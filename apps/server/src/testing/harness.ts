@@ -1,9 +1,14 @@
+import { randomUUID } from 'node:crypto';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import type { Express } from 'express';
 import { createApp } from '../app.js';
 import type { AppConfig } from '../config/env.js';
 import { createLogger } from '../lib/logger.js';
 import { createMemoryRepositories } from '../repositories/memory/index.js';
-import type { Repositories } from '../repositories/types.js';
+import { createMemoryVisualRepositories } from '../repositories/memory/visual.js';
+import type { Persistence } from '../repositories/index.js';
+import { createFilesystemObjectStore } from '../storage/object-store.js';
 
 /**
  * Builds a real Express app backed by in-memory storage.
@@ -14,7 +19,8 @@ import type { Repositories } from '../repositories/types.js';
  */
 export interface Harness {
   app: Express;
-  repositories: Repositories;
+  persistence: Persistence;
+  config: AppConfig;
   logs: string[];
 }
 
@@ -22,7 +28,6 @@ export function createTestApp(overrides: Partial<AppConfig> = {}): Harness {
   const logs: string[] = [];
   // 'warn' so startup warnings are captured, but not the per-request info log.
   const logger = createLogger({ level: 'warn', write: (line) => logs.push(line) });
-  const repositories = createMemoryRepositories();
 
   const config: AppConfig = {
     nodeEnv: 'test',
@@ -31,10 +36,23 @@ export function createTestApp(overrides: Partial<AppConfig> = {}): Harness {
     corsOrigins: ['http://localhost:5173'],
     apiKey: undefined,
     supabase: undefined,
+    ai: undefined,
+    ocrEnabled: false,
+    screenshotBucket: 'screenshots',
+    // Each app gets its own directory, so tests writing images cannot see one
+    // another's files.
+    screenshotDir: join(tmpdir(), `vab-test-${randomUUID()}`),
+    analysisIntervalMs: 0,
     ...overrides,
   };
 
-  return { app: createApp({ config, repositories, logger }), repositories, logs };
+  const persistence: Persistence = {
+    repositories: createMemoryRepositories(),
+    visual: createMemoryVisualRepositories(),
+    store: createFilesystemObjectStore(config.screenshotDir),
+  };
+
+  return { app: createApp({ config, persistence, logger }), persistence, config, logs };
 }
 
 const SESSION_ID = '11111111-1111-4111-8111-111111111111';

@@ -16,6 +16,7 @@
     "cors": "^2.8.5",
     "dotenv": "^17.2.5",
     "express": "^5.2.0",
+    "tesseract.js": "^7.0.0",
     "zod": "^4.1.13"
   },
   "devDependencies": {
