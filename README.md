@@ -43,8 +43,6 @@ Chrome Extension → Express Backend → Supabase (PostgreSQL + Storage)
 | `apps/server`    | Express REST API — routes → controllers → services → repositories |
 | `apps/dashboard` | React dashboard, consumes the REST API only                       |
 
-Design decisions and their reasoning are in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
-
 ## Tech stack
 
 - **Extension** — TypeScript, React, Vite, Tailwind CSS, Manifest V3
@@ -177,13 +175,13 @@ claim.
 - **Privileged secrets stay on the backend.** The dashboard reads through REST because a
   browser page holding database credentials could read everyone's history.
 
-Module 1's known limitations — unscoped reads, RLS without policies, a shared API key —
-are stated in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md#known-limitations-in-module-1).
+Module 1's known limitations — unscoped reads, RLS without policies, a shared API key — are
+documented in the project's architecture notes.
 
 Module 2 adds visual capture, which widens what the extension can see. The same
 data-minimisation rules apply: automatic captures are throttled and capped per session,
 and screenshots are never uploaded without permission being on. Module 2's known
-limitations are stated in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md#known-limitations-in-module-2).
+limitations are documented in the project's architecture notes.
 
 ## Roadmap
 
@@ -193,4 +191,12 @@ limitations are stated in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md#known-li
 | 2 — Visual AI Intelligence          | Screenshots, OCR, vision providers, activity understanding, timeline      | Complete    |
 | 3 — Intelligence Platform           | Dashboard, search, filters, analytics, AI insights, export, settings      | Not started |
 
-The full specification lives in [`docs/PROMPT.md`](docs/PROMPT.md).
+## Credits
+
+Built with the help of **Claude**, which assisted with the documentation, code comment
+generation and numerous bug fixes across all three modules.
+
+> **Let AI accelerate your thinking, never replace it.**
+> **The code is yours only when you understand what you ship.**
+
+✨
