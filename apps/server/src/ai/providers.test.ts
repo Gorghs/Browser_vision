@@ -32,7 +32,7 @@ function stubFetch(response: { ok?: boolean; status?: number; body: unknown }) {
 }
 
 function bodyOf(fetchImpl: ReturnType<typeof stubFetch>): Record<string, unknown> {
-  const init = fetchImpl.mock.calls[0]?.[1] as RequestInit | undefined;
+  const init = fetchImpl.mock.calls[0]?.[1];
   return JSON.parse(String(init?.body)) as Record<string, unknown>;
 }
 
@@ -159,7 +159,7 @@ describe('OpenAI', () => {
 
     await createOpenAiProvider({ apiKey: 'secret', fetchImpl }).complete(request);
 
-    const init = fetchImpl.mock.calls[0]?.[1] as RequestInit | undefined;
+    const init = fetchImpl.mock.calls[0]?.[1];
     expect((init?.headers as Record<string, string>).authorization).toBe('Bearer secret');
   });
 
