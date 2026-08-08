@@ -1,12 +1,14 @@
 import { Router } from 'express';
 import type { RequestHandler } from 'express';
 import express from 'express';
+import { createAnalyticsController } from '../controllers/analytics.controller.js';
 import { createEventController } from '../controllers/event.controller.js';
 import { createScreenshotController } from '../controllers/screenshot.controller.js';
 import { createSessionController } from '../controllers/session.controller.js';
 import { createTimelineController } from '../controllers/timeline.controller.js';
 import type { Repositories } from '../repositories/types.js';
 import type { VisualRepositories } from '../repositories/visual-types.js';
+import { AnalyticsService } from '../services/analytics.service.js';
 import { EventService } from '../services/event.service.js';
 import { ScreenshotService } from '../services/screenshot.service.js';
 import { SessionService } from '../services/session.service.js';
@@ -43,6 +45,7 @@ export function createApiRouter({ repositories, visual, store, auth }: RouterOpt
     new ScreenshotService(repositories, visual, store),
   );
   const timeline = createTimelineController(new TimelineService(repositories, visual));
+  const analytics = createAnalyticsController(new AnalyticsService(repositories, visual));
 
   router.use(auth);
 
@@ -55,6 +58,7 @@ export function createApiRouter({ repositories, visual, store, auth }: RouterOpt
   router.get('/screenshots/:id/image', screenshots.image);
 
   router.get('/timeline', timeline.list);
+  router.get('/analytics/summary', analytics.summary);
 
   return router;
 }

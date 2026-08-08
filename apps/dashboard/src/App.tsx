@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { EventTable } from './components/EventTable.js';
 import { FilterBar } from './components/FilterBar.js';
+import { Overview } from './components/Overview.js';
 import { ScreenshotGallery } from './components/ScreenshotGallery.js';
 import { SessionList } from './components/SessionList.js';
 import { Timeline } from './components/Timeline.js';
@@ -11,6 +12,7 @@ import type { ActivityView } from './store/activity-store.js';
 const REFRESH_MS = 5000;
 
 const VIEWS: { id: ActivityView; label: string }[] = [
+  { id: 'overview', label: 'Overview' },
   { id: 'events', label: 'Events' },
   { id: 'timeline', label: 'Timeline' },
   { id: 'screenshots', label: 'Screenshots' },
@@ -24,6 +26,7 @@ export function App() {
     activities,
     screenshots,
     screenshotTotal,
+    summary,
     filters,
     view,
     loading,
@@ -42,11 +45,13 @@ export function App() {
   }, [load]);
 
   const count =
-    view === 'events'
-      ? `${total} event${total === 1 ? '' : 's'}`
-      : view === 'timeline'
-        ? `${activities.length} activit${activities.length === 1 ? 'y' : 'ies'}`
-        : `${screenshotTotal} capture${screenshotTotal === 1 ? '' : 's'}`;
+    view === 'overview'
+      ? `${summary?.totals.events ?? 0} event${summary?.totals.events === 1 ? '' : 's'}`
+      : view === 'events'
+        ? `${total} event${total === 1 ? '' : 's'}`
+        : view === 'timeline'
+          ? `${activities.length} activit${activities.length === 1 ? 'y' : 'ies'}`
+          : `${screenshotTotal} capture${screenshotTotal === 1 ? '' : 's'}`;
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-6 p-6">
@@ -105,19 +110,22 @@ export function App() {
 
         <section className="flex flex-col gap-2">
           <h2 className="text-xs font-medium tracking-wide text-slate-400 uppercase">
-            {view === 'events'
-              ? filters.sessionId === undefined
-                ? 'Recent events'
-                : 'Events in this session'
-              : view === 'timeline'
+            {view === 'overview'
+              ? 'Overview'
+              : view === 'events'
                 ? filters.sessionId === undefined
-                  ? 'Recent timeline'
-                  : 'Timeline for this session'
-                : filters.sessionId === undefined
-                  ? 'Recent screenshots'
-                  : 'Screenshots in this session'}
+                  ? 'Recent events'
+                  : 'Events in this session'
+                : view === 'timeline'
+                  ? filters.sessionId === undefined
+                    ? 'Recent timeline'
+                    : 'Timeline for this session'
+                  : filters.sessionId === undefined
+                    ? 'Recent screenshots'
+                    : 'Screenshots in this session'}
           </h2>
 
+          {view === 'overview' ? <Overview summary={summary} /> : null}
           {view === 'events' ? <EventTable events={events} /> : null}
           {view === 'timeline' ? <Timeline activities={activities} /> : null}
           {view === 'screenshots' ? (

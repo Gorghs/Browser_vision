@@ -1,10 +1,12 @@
 import {
+  analyticsSummaryResponseSchema,
   listEventsResponseSchema,
   listScreenshotsResponseSchema,
   listSessionsResponseSchema,
   listTimelineResponseSchema,
 } from '@vab/types';
 import type {
+  AnalyticsSummaryResponse,
   AnalysisStatus,
   BrowserEventType,
   ListEventsResponse,
@@ -93,6 +95,14 @@ export async function fetchSessions(): Promise<ListSessionsResponse> {
 
   const parsed = listSessionsResponseSchema.safeParse(body);
   if (!parsed.success) throw new ApiError('The API returned sessions in an unexpected shape.');
+  return parsed.data;
+}
+
+export async function fetchAnalyticsSummary(): Promise<AnalyticsSummaryResponse> {
+  const body = await get('/api/analytics/summary', {});
+
+  const parsed = analyticsSummaryResponseSchema.safeParse(body);
+  if (!parsed.success) throw new ApiError('The API returned analytics in an unexpected shape.');
   return parsed.data;
 }
 

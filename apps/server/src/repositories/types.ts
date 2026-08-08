@@ -75,11 +75,30 @@ export interface UserRepository {
   ensure(installationId: string): Promise<string>;
 }
 
+/** Store-wide counts, for the overview page. Screenshots live in the visual layer. */
+export interface AnalyticsTotals {
+  events: number;
+  sessions: number;
+  liveSessions: number;
+}
+
+export interface DomainCount {
+  domain: string;
+  events: number;
+}
+
+export interface AnalyticsRepository {
+  totals(userId: string | null): Promise<AnalyticsTotals>;
+  /** Most active domains by event count, most active first. */
+  topDomains(userId: string | null, limit: number): Promise<DomainCount[]>;
+}
+
 export interface Repositories {
   users: UserRepository;
   sessions: SessionRepository;
   tabs: TabRepository;
   events: EventRepository;
+  analytics: AnalyticsRepository;
   /** Describes the backing store, for the health endpoint and startup logs. */
   readonly kind: 'supabase' | 'memory';
 }

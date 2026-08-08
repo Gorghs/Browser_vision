@@ -1,5 +1,7 @@
 import type { BrowserEvent, Session } from '@vab/types';
 import type {
+  AnalyticsRepository,
+  DomainCount,
   EventFilter,
   EventPage,
   EventRepository,
@@ -160,11 +162,44 @@ export function createMemoryRepositories(): Repositories {
     },
   };
 
+  const analytics: AnalyticsRepository = {
+    totals(userId) {
+      const ownedEvents = [...events.values()].filter(
+        (event) => userId === null || event.userId === userId,
+      );
+      const ownedSessions = [...sessions.values()].filter(
+        (session) => userId === null || session.userId === userId,
+      );
+
+      return Promise.resolve({
+        events: ownedEvents.length,
+        sessions: ownedSessions.length,
+        liveSessions: ownedSessions.filter((session) => session.endedAt === undefined).length,
+      });
+    },
+
+    topDomains(userId, limit) {
+      const counts = new Map<string, number>();
+      for (const event of events.values()) {
+        if (userId !== null && event.userId !== userId) continue;
+        if (event.domain === undefined) continue;
+        counts.set(event.domain, (counts.get(event.domain) ?? 0) + 1);
+      }
+
+      const ranked: DomainCount[] = [...counts.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, limit)
+        .map(([domain, count]) => ({ domain, events: count }));
+      return Promise.resolve(ranked);
+    },
+  };
+
   return {
     kind: 'memory',
     users,
     sessions: sessionRepository,
     tabs: tabRepository,
     events: eventRepository,
+    analytics,
   };
 }

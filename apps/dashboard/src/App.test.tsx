@@ -49,6 +49,28 @@ const SESSIONS = {
   ],
 };
 
+const SUMMARY = {
+  summary: {
+    totals: {
+      events: 2,
+      sessions: 1,
+      liveSessions: 0,
+      screenshots: 1,
+      analysedScreenshots: 1,
+    },
+    topDomains: [{ domain: 'github.com', events: 2 }],
+    categories: [{ category: 'development', count: 1 }],
+  },
+};
+
+const EMPTY_SUMMARY = {
+  summary: {
+    totals: { events: 0, sessions: 0, liveSessions: 0, screenshots: 0, analysedScreenshots: 0 },
+    topDomains: [],
+    categories: [],
+  },
+};
+
 const TIMELINE = {
   activities: [
     {
@@ -139,6 +161,7 @@ function stubFetch(handler: (url: string) => { status?: number; body?: unknown; 
 /** Routes every endpoint the dashboard touches to its fixture. */
 function defaultHandler(url: string) {
   if (url.endsWith('/image')) return { image: true };
+  if (url.includes('/api/analytics/summary')) return { body: SUMMARY };
   if (url.includes('/api/timeline')) return { body: TIMELINE };
   if (url.includes('/api/screenshots')) return { body: SCREENSHOTS };
   if (url.includes('/api/sessions')) return { body: SESSIONS };
@@ -154,8 +177,9 @@ beforeEach(() => {
     activities: [],
     screenshots: [],
     screenshotTotal: 0,
+    summary: null,
     filters: { type: undefined, domain: '', sessionId: undefined },
-    view: 'events',
+    view: 'overview',
     loading: false,
     error: null,
     lastLoadedAt: null,
@@ -171,8 +195,8 @@ afterEach(() => {
 describe('rendering activity', () => {
   it('shows events returned by the API', async () => {
     stubFetch(defaultHandler);
-
     render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: 'Events' }));
 
     expect(await screen.findByText('github.com')).toBeTruthy();
     expect(screen.getByText('/vercel/next.js/issues/58123')).toBeTruthy();
@@ -180,16 +204,16 @@ describe('rendering activity', () => {
 
   it('humanizes the event type rather than showing the raw constant', async () => {
     stubFetch(defaultHandler);
-
     render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: 'Events' }));
 
     expect(await screen.findByText('Session started')).toBeTruthy();
   });
 
   it('shows the page title beneath the path', async () => {
     stubFetch(defaultHandler);
-
     render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: 'Events' }));
 
     expect(await screen.findByText('Router cache not invalidating')).toBeTruthy();
   });
@@ -214,7 +238,7 @@ describe('rendering activity', () => {
     const spy = stubFetch(defaultHandler);
 
     render(<App />);
-    await screen.findByText('github.com');
+    await screen.findByText('Top sites by activity');
 
     const called = spy.mock.calls.map((call) => String(call[0]));
     expect(called.some((url) => url.includes('/api/events'))).toBe(true);
@@ -225,12 +249,14 @@ describe('rendering activity', () => {
 describe('empty and error states', () => {
   it('explains what to do when nothing has been recorded', async () => {
     stubFetch((url) => {
+      if (url.includes('/api/analytics/summary')) return { body: EMPTY_SUMMARY };
       if (url.includes('/api/timeline')) return { body: { activities: [] } };
       if (url.includes('/api/screenshots')) return { body: { screenshots: [], total: 0 } };
       return { body: url.includes('/sessions') ? { sessions: [] } : { events: [], total: 0 } };
     });
 
     render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: 'Events' }));
 
     expect(await screen.findByText(/No events match these filters/)).toBeTruthy();
   });
@@ -330,6 +356,7 @@ describe('timeline view', () => {
 
   it('labels activities assembled from events rather than claiming AI', async () => {
     stubFetch((url) => {
+      if (url.includes('/api/analytics/summary')) return { body: EMPTY_SUMMARY };
       if (url.includes('/api/timeline')) {
         return {
           body: {
@@ -365,6 +392,7 @@ describe('timeline view', () => {
 
   it('explains when no activities have been generated', async () => {
     stubFetch((url) => {
+      if (url.includes('/api/analytics/summary')) return { body: EMPTY_SUMMARY };
       if (url.includes('/api/timeline')) return { body: { activities: [] } };
       if (url.includes('/api/screenshots')) return { body: { screenshots: [], total: 0 } };
       if (url.includes('/api/sessions')) return { body: SESSIONS };
@@ -420,6 +448,7 @@ describe('screenshots view', () => {
   it('shows a pending capture waiting for the pipeline', async () => {
     stubFetch((url) => {
       if (url.endsWith('/image')) return { image: true };
+      if (url.includes('/api/analytics/summary')) return { body: EMPTY_SUMMARY };
       if (url.includes('/api/screenshots')) {
         return {
           body: {
@@ -461,6 +490,7 @@ describe('screenshots view', () => {
 
   it('explains when nothing has been captured', async () => {
     stubFetch((url) => {
+      if (url.includes('/api/analytics/summary')) return { body: EMPTY_SUMMARY };
       if (url.includes('/api/screenshots')) return { body: { screenshots: [], total: 0 } };
       if (url.includes('/api/timeline')) return { body: { activities: [] } };
       if (url.includes('/api/sessions')) return { body: SESSIONS };
@@ -475,19 +505,72 @@ describe('screenshots view', () => {
   });
 });
 
-describe('view switching', () => {
-  it('starts on the events view', async () => {
+describe('overview view', () => {
+  it('starts on the overview with the headline counts', async () => {
     stubFetch(defaultHandler);
     render(<App />);
 
-    expect(await screen.findByText('/vercel/next.js/issues/58123')).toBeTruthy();
-    expect(screen.queryByText('Recent timeline')).toBeNull();
+    expect(await screen.findByText('Live now')).toBeTruthy();
+    expect(screen.getByText('Analysed')).toBeTruthy();
   });
 
-  it('switches between all three views', async () => {
+  it('shows the totals, top sites and activity types from the summary', async () => {
     stubFetch(defaultHandler);
     render(<App />);
-    await screen.findByText('github.com');
+
+    expect(await screen.findByText('Top sites by activity')).toBeTruthy();
+    expect(screen.getByText('github.com')).toBeTruthy();
+    expect(screen.getByText('Activity by type')).toBeTruthy();
+    expect(screen.getByText('Development')).toBeTruthy();
+  });
+
+  it('reports the summary total in the header', async () => {
+    stubFetch(defaultHandler);
+    render(<App />);
+
+    expect(await screen.findByText('2 events recorded')).toBeTruthy();
+  });
+
+  it('reads the summary from the analytics endpoint', async () => {
+    const spy = stubFetch(defaultHandler);
+    render(<App />);
+    await screen.findByText('Top sites by activity');
+
+    const called = spy.mock.calls.map((call) => String(call[0]));
+    expect(called.some((url) => url.includes('/api/analytics/summary'))).toBe(true);
+  });
+
+  it('explains when nothing has been recorded', async () => {
+    stubFetch((url) => {
+      if (url.includes('/api/analytics/summary')) return { body: EMPTY_SUMMARY };
+      if (url.includes('/api/timeline')) return { body: { activities: [] } };
+      if (url.includes('/api/screenshots')) return { body: { screenshots: [], total: 0 } };
+      if (url.includes('/api/sessions')) return { body: { sessions: [] } };
+      return { body: { events: [], total: 0 } };
+    });
+    render(<App />);
+
+    expect(await screen.findByText('No site activity recorded yet.')).toBeTruthy();
+    expect(screen.getByText(/No analysed activity yet/)).toBeTruthy();
+  });
+});
+
+describe('view switching', () => {
+  it('starts on the overview view', async () => {
+    stubFetch(defaultHandler);
+    render(<App />);
+
+    expect(await screen.findByText('Top sites by activity')).toBeTruthy();
+    expect(screen.queryByText('Recent events')).toBeNull();
+  });
+
+  it('switches between all four views', async () => {
+    stubFetch(defaultHandler);
+    render(<App />);
+    await screen.findByText('Top sites by activity');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Events' }));
+    expect(await screen.findByText('Recent events')).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: 'Timeline' }));
     expect(await screen.findByText('Recent timeline')).toBeTruthy();
@@ -495,7 +578,7 @@ describe('view switching', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Screenshots' }));
     expect(await screen.findByText('Recent screenshots')).toBeTruthy();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Events' }));
-    expect(await screen.findByText('Recent events')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Overview' }));
+    expect(await screen.findByText('Top sites by activity')).toBeTruthy();
   });
 });

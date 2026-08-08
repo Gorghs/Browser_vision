@@ -2,6 +2,7 @@ import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js';
 import type { BrowserEvent, BrowserEventType, Session } from '@vab/types';
 import { StorageError } from '../../lib/errors.js';
 import type {
+  AnalyticsRepository,
   EventFilter,
   EventPage,
   EventRepository,
@@ -213,7 +214,58 @@ export function createSupabaseRepositories(client: SupabaseClient): Repositories
     },
   };
 
-  return { kind: 'supabase', users, sessions, tabs, events };
+  const analytics: AnalyticsRepository = {
+    async totals(userId) {
+      let eventQuery = client.from('events').select('*', { count: 'exact', head: true });
+      let sessionQuery = client.from('sessions').select('*', { count: 'exact', head: true });
+      let liveSessionQuery = client
+        .from('sessions')
+        .select('*', { count: 'exact', head: true })
+        .is('ended_at', null);
+
+      if (userId !== null) {
+        eventQuery = eventQuery.eq('user_id', userId);
+        sessionQuery = sessionQuery.eq('user_id', userId);
+        liveSessionQuery = liveSessionQuery.eq('user_id', userId);
+      }
+
+      const [events, sessions, liveSessions] = await Promise.all([
+        eventQuery,
+        sessionQuery,
+        liveSessionQuery,
+      ]);
+      if (events.error) fail('Counting events', events.error);
+      if (sessions.error) fail('Counting sessions', sessions.error);
+      if (liveSessions.error) fail('Counting live sessions', liveSessions.error);
+
+      return {
+        events: events.count ?? 0,
+        sessions: sessions.count ?? 0,
+        liveSessions: liveSessions.count ?? 0,
+      };
+    },
+
+    async topDomains(userId, limit) {
+      let query = client.from('events').select('domain');
+      if (userId !== null) query = query.eq('user_id', userId);
+
+      const { data, error } = await query.returns<{ domain: string | null }[]>();
+      if (error) fail('Listing event domains', error);
+
+      const counts = new Map<string, number>();
+      for (const row of data) {
+        if (row.domain === null) continue;
+        counts.set(row.domain, (counts.get(row.domain) ?? 0) + 1);
+      }
+
+      return [...counts.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, limit)
+        .map(([domain, count]) => ({ domain, events: count }));
+    },
+  };
+
+  return { kind: 'supabase', users, sessions, tabs, events, analytics };
 }
 
 /**

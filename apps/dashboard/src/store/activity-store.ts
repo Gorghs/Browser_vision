@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type {
+  AnalyticsSummary,
   BrowserEvent,
   BrowserEventType,
   Screenshot,
@@ -8,6 +9,7 @@ import type {
 } from '@vab/types';
 import {
   ApiError,
+  fetchAnalyticsSummary,
   fetchEvents,
   fetchScreenshots,
   fetchSessions,
@@ -21,7 +23,7 @@ export interface ActivityFilters {
 }
 
 /** Which read the main pane is showing. */
-export type ActivityView = 'events' | 'timeline' | 'screenshots';
+export type ActivityView = 'overview' | 'events' | 'timeline' | 'screenshots';
 
 interface ActivityState {
   events: BrowserEvent[];
@@ -30,6 +32,7 @@ interface ActivityState {
   activities: TimelineActivity[];
   screenshots: Screenshot[];
   screenshotTotal: number;
+  summary: AnalyticsSummary | null;
   filters: ActivityFilters;
   view: ActivityView;
   loading: boolean;
@@ -53,8 +56,9 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
   activities: [],
   screenshots: [],
   screenshotTotal: 0,
+  summary: null,
   filters: EMPTY_FILTERS,
-  view: 'events',
+  view: 'overview',
   loading: false,
   error: null,
   lastLoadedAt: null,
@@ -67,7 +71,7 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
       // Every pane reflects the same instant, rather than the timeline being a
       // request older than the events beneath it. The selected session scopes
       // each read; the type and domain filters only apply to the event table.
-      const [events, sessions, timeline, screenshots] = await Promise.all([
+      const [events, sessions, timeline, screenshots, summary] = await Promise.all([
         fetchEvents({
           type: filters.type,
           domain: filters.domain.trim() || undefined,
@@ -76,6 +80,7 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
         fetchSessions(),
         fetchTimeline({ sessionId: filters.sessionId }),
         fetchScreenshots({ sessionId: filters.sessionId }),
+        fetchAnalyticsSummary(),
       ]);
 
       set({
@@ -85,6 +90,7 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
         activities: timeline.activities,
         screenshots: screenshots.screenshots,
         screenshotTotal: screenshots.total,
+        summary: summary.summary,
         loading: false,
         lastLoadedAt: new Date(),
       });
